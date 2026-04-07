@@ -27,3 +27,7 @@ test-timeout = 3 # in sec
 name = "custom_kernel"
 test = true
 bench = false
+
+[[test]]
+name = "should_panic"
+harness = false
