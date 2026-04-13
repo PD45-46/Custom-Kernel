@@ -13,7 +13,18 @@ pub extern "C" fn _start() -> ! {
     println!("Hello World{}", "!");
 
     custom_kernel::init();
-    x86_64::instructions::interrupts::int3();
+
+    // // page fault
+    // unsafe {
+    //     *(0xdeadbeef as *mut u8) = 42;
+    // };
+    // x86_64::instructions::interrupts::int3();
+
+    fn stack_overflow() {
+        stack_overflow();
+    }
+
+    stack_overflow(); 
 
     #[cfg(test)]
     test_main();
