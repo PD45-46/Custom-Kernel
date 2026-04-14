@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h> 
 
-typedef strcut __attribute__((packed)){ 
+typedef struct __attribute__((packed)) { 
     uint16_t limit_low; 
     uint16_t base_low; 
     uint8_t base_mid; 
