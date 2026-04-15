@@ -170,7 +170,7 @@ uint64_t vmm_get_phys(uint64_t virt) {
  */
 void vmm_init() { 
     uint64_t cr3; 
-    asm volatile("mov %cr3, %0" : "=r"(cr3)); 
+    asm volatile("mov %%cr3, %0" : "=r"(cr3)); 
 
     kernel_pml4 = (uint64_t *)ENTRY_ADDR(cr3); 
 }
