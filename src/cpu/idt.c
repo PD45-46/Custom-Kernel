@@ -75,6 +75,16 @@ void irq_common_handler(registers_t *regs) {
         isr_handlers[regs->int_no](regs);  
 }
 
+/**
+ * @brief 
+ * 
+ * @param n 
+ * @param handler 
+ */
+void idt_register_handler(uint8_t n, void (*handler)(registers_t *)) {
+    isr_handlers[n] = handler;
+}
+
 void idt_init() { 
     idt_ptr.limit = sizeof(idt) - 1; 
     idt_ptr.base = (uint64_t)&idt; 

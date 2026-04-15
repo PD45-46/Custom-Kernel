@@ -178,3 +178,5 @@ isr_stub_table:
     dq isr_24, isr_25, isr_26, isr_27, isr_28, isr_29, isr_30, isr_31
     dq irq_0,  irq_1,  irq_2,  irq_3,  irq_4,  irq_5,  irq_6,  irq_7
     dq irq_8,  irq_9,  irq_10, irq_11, irq_12, irq_13, irq_14, irq_15
+
+section .note.GNU-stack noalloc noexec nowrite progbits

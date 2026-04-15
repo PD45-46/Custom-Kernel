@@ -52,7 +52,7 @@ void keyboard_init() {
 char keyboard_getchar() { 
     char c = last_key; 
     last_key = 0; 
-    return last_key; 
+    return c; 
 }
 
 

@@ -12,7 +12,7 @@ static inline uint16_t vga_entry(char c, uint8_t colour) {
 
 void vga_init() { 
     current_colour = (VGA_BLACK << 4) | VGA_LIGHT_CYAN; 
-    vg_clear(); 
+    vga_clear(); 
 }
 
 void vga_clear() { 
@@ -26,15 +26,7 @@ void vga_clear() {
 }
 
 void vga_set_colour(vga_colour_t fg, vga_colour_t bg) { 
-    for(int y = 0; y < VGA_ROWS - 1; y++) { 
-        for(int x = 0; x < VGA_COLS; x++) { 
-            vga_buf[y * VGA_COLS + x] = vga_buf[(y+1) * VGA_COLS + x];
-        }
-    }
-    for(int x = 0; x < VGA_COLS; x++) { 
-        vga_buf[(VGA_ROWS-1) * VGA_COLS + x] = vga_entry(' ', current_colour);
-    }
-    cursor_y = VGA_ROWS - 1;
+    current_colour = (bg << 4) | fg; 
 }
 
 static void vga_scroll() { 
