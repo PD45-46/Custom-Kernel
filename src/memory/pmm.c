@@ -17,6 +17,10 @@ Bitmap size  = 65536 / 8 = 8192 bytes.
 static uint8_t bitmap[BITMAP_SIZE]; 
 static size_t free_frame_count = 0; 
 
+extern uint64_t kernel_start;
+extern uint64_t kernel_end;  
+
+
 /* 
  * bitmap_set/clear/test - manipulate individual bits
  * frame_index / 8 gives the byte, frame_index % 8 gives the bit
@@ -53,6 +57,21 @@ void pmm_init() {
         bitmap_clear(i); 
         free_frame_count++; 
     }
+
+    // re-reserve the frames the kernel occupies 
+    uint64_t k_start = (uint64_t)&kernel_start; 
+    uint64_t k_end = (uint64_t)&kernel_end;
+    uint64_t k_start_frame = k_start / PAGE_SIZE; 
+    uint64_t k_end_frame = (k_end + PAGE_SIZE - 1) / PAGE_SIZE; 
+    
+    for(uint32_t i = k_start_frame; i < k_end_frame; i++) { 
+        bitmap_set(i); 
+        free_frame_count--; 
+    }
+
+    // vga_print("KERNEL START "); vga_print_hex((uint64_t)&kernel_start); vga_print("\n"); 
+    // vga_print("KERNEL END "); vga_print_hex((uint64_t)&kernel_end); vga_print("\n"); 
+
 }
 
 /**

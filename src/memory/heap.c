@@ -1,6 +1,7 @@
 #include "heap.h"
 #include "vmm.h"
 #include "pmm.h"
+#include "../drivers/vga.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -36,11 +37,14 @@ static block_header_t *heap_head = NULL;
 void heap_init() { 
     for(size_t i = 0; i < HEAP_PAGES; i++) { 
         void *frame = pmm_alloc(); 
+        if(!frame) { 
+            vga_print("Invalid frame\n"); 
+            for(;;) asm volatile("hlt"); 
+        }
         // TODO Make sure flags and etc are accessible 
         vmm_map(HEAP_START + i * PAGE_SIZE, (uint64_t)frame, 0x03 /* Present + Writable*/);
     }
-
-    heap_head = (block_header_t *)HEAP_START; 
+    heap_head = (block_header_t *)HEAP_START;
     heap_head->size = (HEAP_PAGES * PAGE_SIZE) - sizeof(block_header_t); 
     heap_head->free = 1; 
     heap_head->next = NULL; 
@@ -66,7 +70,7 @@ void *kmalloc(size_t size) {
             // split block if there is enough room for a new header 
             if(curr->size > size + sizeof(block_header_t) + 8) { 
                 block_header_t *split = (block_header_t*)(
-                    (uint64_t *)curr + sizeof(block_header_t) + size);  
+                    (uint8_t *)curr + sizeof(block_header_t) + size);  
                 split->size = curr->size - size - sizeof(block_header_t); 
                 split->free = 1; 
                 split->next = curr->next; 

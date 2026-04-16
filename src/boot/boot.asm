@@ -46,8 +46,18 @@ _start:
     mov [pdpt_table], eax
 
     ; Link PD entry 0 to a 2MB Huge Page (starts at address 0)
-    mov eax, 0b10000011 ; Present + Writable + Huge
-    mov [pd_table], eax
+    mov ecx, 0          ; index
+    mov ebx, 0          ; physical addr
+
+    .map_loop:
+        mov eax, ebx
+        or eax, 0b10000011
+        mov [pd_table + ecx*8], eax
+
+        add ebx, 0x200000    ; next 2MB
+        inc ecx
+        cmp ecx, 8           ; map 16MB
+        jl .map_loop
 
     ; 2. Point CR3 to PML4
     mov eax, pml4_table

@@ -62,8 +62,18 @@ void isr_common_handler(registers_t *regs) {
     if(isr_handlers[regs->int_no]) { 
         isr_handlers[regs->int_no](regs); // goto addr and exec func using regs as param
     } else { 
-        vga_print("EXCEPTION: unhandled interrupt\n"); 
-        for(;;) asm volatile("hlt"); 
+        vga_print("EXCEPTION: int=0x"); 
+
+        uint64_t n = regs->int_no; 
+        for (int i = 60; i >= 0; i -= 4) {
+            uint8_t nibble = (n >> i) & 0xF;
+            char c = nibble < 10 ? '0' + nibble : 'A' + nibble - 10;
+            if (c != '0' || i == 0) vga_putchar(c); 
+        }
+        vga_print("  err=0x");
+        n = regs->err_code;
+        vga_print("\n");
+        for(;;) asm volatile("hlt");
     }
 }
 

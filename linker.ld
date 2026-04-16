@@ -3,6 +3,8 @@ ENTRY(_start)
 SECTIONS {
     . = 1M;                     /* load kernel at 1MB */
 
+    kernel_start = .; 
+
     .text : {
         KEEP(*(.multiboot))     /* multiboot header must be first */
         *(.text)
@@ -16,4 +18,6 @@ SECTIONS {
         *(COMMON)
         *(.bss)
     }
+
+    kernel_end = .; 
 }

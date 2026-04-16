@@ -1,0 +1,5 @@
+process.c — process struct creation and destruction
+context.asm — the register save/restore context switch routine
+scheduler.c — round-robin queue, hook into timer interrupt
+syscall.c — syscall instruction handler and dispatch table
+userspace — ring 3 process in its own address space

@@ -78,6 +78,12 @@ uint64_t *kernel_pml4;
 static uint64_t *get_or_create_table(uint64_t *entry, uint64_t flags) { 
     if(!(*entry & PTE_PRESENT)) { 
         void *frame = pmm_alloc(); 
+
+        if(!frame) { 
+            vga_print("[VMM] pmm_alloc failed in get_or_create-table\n"); 
+            for(;;) asm volatile("hlt"); 
+        }
+
         uint64_t *table = (uint64_t *)frame; 
         for(int i = 0; i < NUM_PAGE_LEVEL_ENTRIES; i++) { 
             table[i] = 0; 

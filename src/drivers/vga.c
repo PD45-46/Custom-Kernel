@@ -55,6 +55,20 @@ void vga_print(const char *str) {
     }
 }
 
+void vga_print_hex(uint64_t n) {
+    vga_print("0x");
+    char buf[17];
+    int i = 0;
+    if (n == 0) { vga_print("0"); return; }
+    while (n) {
+        uint8_t nibble = n & 0xF;
+        buf[i++] = nibble < 10 ? '0' + nibble : 'A' + nibble - 10;
+        n >>= 4;
+    }
+    // buf is reversed
+    for (int j = i - 1; j >= 0; j--) vga_putchar(buf[j]);
+}
+
 void vga_init() { 
     vga_set_colour(VGA_WHITE, VGA_BLUE); 
     vga_clear(); 
