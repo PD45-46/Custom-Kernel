@@ -11,13 +11,9 @@ static inline uint16_t vga_entry(char c, uint8_t colour) {
 }
 
 void vga_clear() { 
-    for(int y = 0; y < VGA_ROWS; y++) { 
-        for(int x = 0; x < VGA_COLS; x++) { 
-            vga_buf[y * VGA_COLS + x] = vga_entry(' ', current_colour); 
-        }
+    for(int i = 0; i < VGA_ROWS * VGA_COLS; i++) { 
+        vga_buf[i] = vga_entry(' ', current_colour); 
     }
-    cursor_x = 0; 
-    cursor_y = 0; 
 }
 
 void vga_set_colour(vga_colour_t fg, vga_colour_t bg) { 
@@ -60,7 +56,7 @@ void vga_print(const char *str) {
 }
 
 void vga_init() { 
-    vga_set_colour(VGA_WHITE, VGA_BLACK); 
+    vga_set_colour(VGA_WHITE, VGA_BLUE); 
     vga_clear(); 
 }
 

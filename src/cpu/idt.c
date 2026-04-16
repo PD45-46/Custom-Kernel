@@ -87,7 +87,7 @@ void idt_register_handler(uint8_t n, void (*handler)(registers_t *)) {
 
 void idt_init() { 
     idt_ptr.limit = sizeof(idt) - 1; 
-    idt_ptr.base = (uint64_t)&idt; 
+    idt_ptr.base = (uintptr_t)&idt; 
 
     // install all 48 stubs (32 exceptions + 16 IRQs)
     for(int i = 0; i < 48; i++) { 

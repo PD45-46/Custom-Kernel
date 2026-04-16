@@ -44,11 +44,11 @@ static void gdt_set_entry(
  * Loads the GDT pointer with lgdt and does a far jump to reload the segment 
  * registers with the new descriptors. The far jump can't be done in C. 
  */
-extern void gdt_flush(uint64_t gdt_ptr); 
+extern void gdt_flush(uintptr_t gdt_ptr); 
 
 void gdt_init() { 
     gdt_ptr.limit = (sizeof(gdt_entry_t) * 5) - 1; 
-    gdt_ptr.base = (uint64_t)&gdt; 
+    gdt_ptr.base = (uintptr_t)&gdt; 
 
     gdt_set_entry(0, 0, 0, 0x00, 0x00); 
     gdt_set_entry(1, 0, 0xFFFFFFFF, 0x9A, 0xA0); 
@@ -56,7 +56,7 @@ void gdt_init() {
     gdt_set_entry(3, 0, 0xFFFFFFFF, 0xFA, 0xA0); 
     gdt_set_entry(4, 0, 0xFFFFFFFF, 0xF2, 0xC0);
     
-    gdt_flush((uint64_t)&gdt_ptr); 
+    gdt_flush((uintptr_t)&gdt_ptr); 
 
 }
 

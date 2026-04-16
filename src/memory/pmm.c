@@ -68,7 +68,7 @@ void *pmm_alloc() {
         if(!bitmap_test(i)) { 
             bitmap_set(i); 
             free_frame_count--; 
-            return (void *)(uint64_t)(i * PAGE_SIZE); 
+            return (void *)(uintptr_t)(i * PAGE_SIZE); 
         }
     }
     return NULL; 
@@ -80,7 +80,7 @@ void *pmm_alloc() {
  * @param frame Address of allocated memory to free. 
  */
 void pmm_free(void *frame) { 
-    uint32_t idx = (uint64_t)frame / PAGE_SIZE; 
+    uint32_t idx = (uintptr_t)frame / PAGE_SIZE; 
     bitmap_clear(idx); 
     free_frame_count++; 
 }
