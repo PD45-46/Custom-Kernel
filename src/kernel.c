@@ -19,28 +19,28 @@ void kernel_main() {
     idt_init(); 
     vga_print("[OK] IDT\n"); 
 
-    // pic_init(); 
-    // vga_print("[OK] PIC\n"); 
+    pic_init(); 
+    vga_print("[OK] PIC\n"); 
 
-    // timer_init(100);    /* 100Hz */
-    // vga_print("[OK] Timer\n");
+    timer_init(100);    /* 100Hz */
+    vga_print("[OK] Timer\n");
 
-    // keyboard_init();
-    // vga_print("[OK] Keyboard\n");
+    keyboard_init();
+    vga_print("[OK] Keyboard\n");
 
-    // pmm_init();
-    // vga_print("[OK] Physical memory manager\n");
+    pmm_init();
+    vga_print("[OK] Physical Memory Manager\n");
 
-    // vmm_init();
-    // vga_print("[OK] Virtual memory manager\n");
+    vmm_init();
+    vga_print("[OK] Virtual Memory Manager\n");
 
-    // heap_init();
-    // vga_print("[OK] Heap\n");
+    heap_init();
+    vga_print("[OK] Heap\n");
 
-    // vga_print("Kernel ready.\n");
+    vga_print("Kernel ready.\n");
 
-    // /* enable interrupts */
-    // asm volatile("sti");
+    /* enable interrupts */
+    asm volatile("sti");
 
     /* hang */
     for(;;) asm volatile("hlt"); 
