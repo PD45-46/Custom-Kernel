@@ -10,16 +10,14 @@
 #include "memory/heap.h"
 
 void kernel_main() { 
-    // *((volatile uint16_t*)0xB8000) = 0x0F48;
-    asm volatile ("movw $0x1F21, 0xB8000");
     vga_init(); 
     vga_print("Kernel Booting... \n"); 
 
-    // gdt_init(); 
-    // vga_print("[OK] GDT\n"); 
+    gdt_init(); 
+    vga_print("[OK] GDT\n"); 
 
-    // idt_init(); 
-    // vga_print("[OK] IDT\n"); 
+    idt_init(); 
+    vga_print("[OK] IDT\n"); 
 
     // pic_init(); 
     // vga_print("[OK] PIC\n"); 

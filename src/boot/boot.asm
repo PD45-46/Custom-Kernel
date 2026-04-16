@@ -84,6 +84,8 @@ long_mode_start:
     mov gs, ax
 
     mov rsp, stack_top
+    and rsp, -16 ; force 16 bit alignment 
+
     extern kernel_main
     call kernel_main
     hlt

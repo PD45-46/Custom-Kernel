@@ -3,13 +3,15 @@
 #include <stdint.h> 
 #include <stddef.h> 
 
+// TODO CLEANUP COMMENTS
+
 /*
 Intel and AMD processors are designed to support a max of 256 interrupts. 
 0 - 31 (32): Exceptions 
 32 - 47 (16): IRQs (Interrupt Requests) 
 48 - 255 (208): User defined  
 */
-static idt_entry_t idt[256]; 
+static idt_entry_t idt[256] __attribute__((aligned(16))); 
 static idt_ptr_t idt_ptr; 
 
 /* 
@@ -86,15 +88,25 @@ void idt_register_handler(uint8_t n, void (*handler)(registers_t *)) {
 }
 
 void idt_init() { 
+    // vga_print("[SETTING UP IDT ENTRIES]\n");
     idt_ptr.limit = sizeof(idt) - 1; 
+    // vga_print("[limit set]\n"); 
     idt_ptr.base = (uintptr_t)&idt; 
+    // vga_print("[base set]\n"); 
 
-    // install all 48 stubs (32 exceptions + 16 IRQs)
-    for(int i = 0; i < 48; i++) { 
+    for(int i = 0; i < 48; i++) {
+
+        // char buf[3];  
+        // buf[0] = '0' + (i/10); 
+        // buf[1] = '0' + (i%10); 
+        // buf[2] = '\0'; 
+        // vga_print(buf); 
+        // vga_print(" "); 
         idt_set_entry(i, isr_stub_table[i], 0x8E); 
     }
-
+    // vga_print("[installed stubs]\n"); 
     asm volatile("lidt %0" : : "m"(idt_ptr)); 
+    // vga_print("[done LIDT]\n");
 }
 
 
