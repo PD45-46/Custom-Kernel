@@ -1,4 +1,4 @@
 #pragma once
 
-void keyboard_init(); 
-char keyboard_getchar(); // last key pressed 
+void keyboard_init(void); 
+char keyboard_getchar(void); // last key pressed 

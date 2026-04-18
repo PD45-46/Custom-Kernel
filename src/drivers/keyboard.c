@@ -39,7 +39,7 @@ static void keyboard_handler(registers_t *regs) {
     pic_send_eoi(1);  // IRQ  1 
 }
 
-void keyboard_init() { 
+void keyboard_init(void) { 
     idt_register_handler(33, keyboard_handler); 
     pic_unmask(1); 
 }
@@ -49,7 +49,7 @@ void keyboard_init() {
  * 
  * @return char Last key. 
  */
-char keyboard_getchar() { 
+char keyboard_getchar(void) { 
     char c = last_key; 
     last_key = 0; 
     return c; 

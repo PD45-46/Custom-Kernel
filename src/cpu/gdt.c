@@ -46,7 +46,7 @@ static void gdt_set_entry(
  */
 extern void gdt_flush(uintptr_t gdt_ptr); 
 
-void gdt_init() { 
+void gdt_init(void) { 
     gdt_ptr.limit = (sizeof(gdt_entry_t) * 5) - 1; 
     gdt_ptr.base = (uintptr_t)&gdt; 
 

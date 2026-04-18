@@ -108,3 +108,5 @@ gdt64:
 .pointer:
     dw $ - gdt64 - 1
     dd gdt64      ; Changed to dd (4 bytes) for 32-bit compatibility
+
+section .note.GNU-stack noalloc noexec nowrite progbits

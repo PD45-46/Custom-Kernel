@@ -9,12 +9,13 @@ typedef enum {
 } process_state_t; 
 
 typedef struct { 
-    uint64_t rax, rab, rcx, rdx; 
-    uint64_t rsi, rdi, rbp, rsp; 
-    uint64_t r8, r9, r10, r11; 
-    uint64_t r12, r13, r14, r15; 
-    uint64_t rip, rflags; 
-    uint64_t cr3; // page table root 
+    uint64_t rsp;
+    uint64_t rax, rbx, rcx, rdx;
+    uint64_t rsi, rdi, rbp;
+    uint64_t r8, r9, r10, r11;
+    uint64_t r12, r13, r14, r15;
+    uint64_t rip, rflags;
+    uint64_t cr3;
 } cpu_state_t; 
 
 typedef struct process { 
@@ -28,4 +29,5 @@ typedef struct process {
 } process_t; 
 
 process_t *process_create(void (*entry)(void)); 
+void process_trampoline_fn(void); 
 void process_destroy(process_t *proc); 

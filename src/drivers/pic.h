@@ -12,7 +12,7 @@ exception numbers.
 #define PIC2_CMD 0xA0 
 #define PIC2_DATA 0xA1
 
-void pic_init(); 
+void pic_init(void); 
 void pic_send_eoi(uint8_t irq); // end of interrupt signal 
 void pic_mask(uint8_t irq); // disable specific irq
 void pic_unmask(uint8_t irq); // enable specific irq

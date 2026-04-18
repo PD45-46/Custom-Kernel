@@ -3,7 +3,7 @@
 #include <stdint.h> 
 #include <stddef.h> 
 
-// TODO CLEANUP COMMENTS
+// TODO CLEANUP COMMENTS AND INIT ISR ARRAY WITH HANDLERS 
 
 /*
 Intel and AMD processors are designed to support a max of 256 interrupts. 
@@ -88,7 +88,8 @@ void irq_common_handler(registers_t *regs) {
 }
 
 /**
- * @brief 
+ * @brief Places the handler function in the associated location 
+ *        in the Interrupt Service Routine array. 
  * 
  * @param n 
  * @param handler 
@@ -97,26 +98,26 @@ void idt_register_handler(uint8_t n, void (*handler)(registers_t *)) {
     isr_handlers[n] = handler;
 }
 
-void idt_init() { 
-    // vga_print("[SETTING UP IDT ENTRIES]\n");
+
+static void page_fault_handler(registers_t *regs) { 
+    uint64_t fault_addr; 
+    asm volatile("mov %%cr2, %0" : "=r"(fault_addr)); 
+    vga_print("PAGE FAULT at addr=0x"); 
+    vga_print_hex(fault_addr); 
+    for(;;) asm volatile("hlt"); 
+}   
+
+
+
+void idt_init(void) { 
     idt_ptr.limit = sizeof(idt) - 1; 
-    // vga_print("[limit set]\n"); 
     idt_ptr.base = (uintptr_t)&idt; 
-    // vga_print("[base set]\n"); 
 
     for(int i = 0; i < 48; i++) {
-
-        // char buf[3];  
-        // buf[0] = '0' + (i/10); 
-        // buf[1] = '0' + (i%10); 
-        // buf[2] = '\0'; 
-        // vga_print(buf); 
-        // vga_print(" "); 
         idt_set_entry(i, isr_stub_table[i], 0x8E); 
     }
-    // vga_print("[installed stubs]\n"); 
     asm volatile("lidt %0" : : "m"(idt_ptr)); 
-    // vga_print("[done LIDT]\n");
+    idt_register_handler(14, page_fault_handler); 
 }
 
 

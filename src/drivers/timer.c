@@ -2,6 +2,7 @@
 #include "pic.h"
 #include "../cpu/idt.h"
 #include "../drivers/vga.h"
+#include "../process/scheduler.h"
 #include <stdint.h> 
 
 static uint64_t ticks = 0; 
@@ -20,6 +21,7 @@ static inline void outb(uint16_t port, uint8_t val) {
 static void timer_handler(registers_t *regs) { 
     (void)regs; 
     ticks++; 
+    scheduler_tick(); 
     pic_send_eoi(0); 
 }
 
@@ -40,7 +42,7 @@ void timer_init(uint32_t frequency) {
     pic_unmask(0); 
 }
 
-uint64_t timer_ticks() { 
+uint64_t timer_ticks(void) { 
     return ticks; 
 }
 

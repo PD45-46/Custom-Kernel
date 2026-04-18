@@ -174,7 +174,7 @@ uint64_t vmm_get_phys(uint64_t virt) {
  * current CR3 value and work off that. 
  * CR3 holds the physical address of current PML4 table. 
  */
-void vmm_init() { 
+void vmm_init(void) { 
     uint64_t cr3; 
     asm volatile("mov %%cr3, %0" : "=r"(cr3)); 
 

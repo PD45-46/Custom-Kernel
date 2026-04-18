@@ -34,7 +34,7 @@ static block_header_t *heap_head = NULL;
  *        free block covering the entire heap region. 
  * 
  */
-void heap_init() { 
+void heap_init(void) { 
     for(size_t i = 0; i < HEAP_PAGES; i++) { 
         void *frame = pmm_alloc(); 
         if(!frame) { 

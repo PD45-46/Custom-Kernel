@@ -12,7 +12,7 @@ for a frame. When done, return it.
 
 #define PAGE_SIZE 4096
 
-void pmm_init(); 
-void *pmm_alloc(); // ret 4KB frame 
+void pmm_init(void); 
+void *pmm_alloc(void); // ret 4KB frame 
 void pmm_free(void *frame); 
-size_t pmm_free_frames(); 
+size_t pmm_free_frames(void); 

@@ -25,7 +25,7 @@ static inline uint8_t inb(uint16_t port) {
 }
 
 /* tactic to waste a small amount of time by writing to */
-static inline void io_wait() { 
+static inline void io_wait(void) { 
     outb(0x80, 0); 
 } 
 
@@ -38,7 +38,7 @@ static inline void io_wait() {
  *          (PIC2) need this. 
  * 
  */
-void pic_init() { 
+void pic_init(void) { 
     // save current masks 
     uint8_t mask1 = inb(PIC1_DATA); 
     uint8_t mask2 = inb(PIC2_DATA); 

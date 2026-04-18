@@ -15,4 +15,4 @@ typedef struct __attribute__((packed)) {
     uint64_t base; 
 } gdt_ptr_t; 
 
-void gdt_init(); 
+void gdt_init(void); 

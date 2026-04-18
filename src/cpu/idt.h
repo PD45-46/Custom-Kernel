@@ -23,5 +23,5 @@ typedef struct {
     uint64_t rip, cs, rflags, rsp, ss;   /* pushed by CPU */
 } registers_t; 
 
-void idt_init(); 
+void idt_init(void); 
 void idt_register_handler(uint8_t n, void (*handler)(registers_t *)); 

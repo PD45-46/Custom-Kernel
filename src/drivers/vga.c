@@ -10,7 +10,7 @@ static inline uint16_t vga_entry(char c, uint8_t colour) {
     return (uint16_t)c | ((uint16_t)colour << 8); 
 }
 
-void vga_clear() { 
+void vga_clear(void) { 
     for(int i = 0; i < VGA_ROWS * VGA_COLS; i++) { 
         vga_buf[i] = vga_entry(' ', current_colour); 
     }
@@ -20,7 +20,7 @@ void vga_set_colour(vga_colour_t fg, vga_colour_t bg) {
     current_colour = (bg << 4) | fg; 
 }
 
-static void vga_scroll() { 
+static void vga_scroll(void) { 
     for(int y = 0; y < VGA_ROWS - 1; y++) { 
         for(int x = 0; x < VGA_COLS; x++) { 
             vga_buf[y * VGA_COLS + x] = vga_buf[(y+1) * VGA_COLS + x];
@@ -69,7 +69,7 @@ void vga_print_hex(uint64_t n) {
     for (int j = i - 1; j >= 0; j--) vga_putchar(buf[j]);
 }
 
-void vga_init() { 
+void vga_init(void) { 
     vga_set_colour(VGA_WHITE, VGA_BLUE); 
     vga_clear(); 
 }

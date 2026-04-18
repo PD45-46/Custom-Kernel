@@ -43,7 +43,7 @@ static int bitmap_test(uint32_t frame) {
  *        BIOS data, VGA buffer, and the kernel code. 
  * 
  */
-void pmm_init() { 
+void pmm_init(void) { 
     // mark everything as used 
     for(size_t i = 0; i < BITMAP_SIZE; i++) { 
         bitmap[i] = 0xFF; 
@@ -82,7 +82,7 @@ void pmm_init() {
  * @note Using a bitmap will cost O(n) scan times (which is fine for now), but 
  *       in the real world we would use free lists for O(1) time. 
  */
-void *pmm_alloc() { 
+void *pmm_alloc(void) { 
     for(uint32_t i = 0; i < TOTAL_FRAMES; i++) { 
         if(!bitmap_test(i)) { 
             bitmap_set(i); 
@@ -109,6 +109,6 @@ void pmm_free(void *frame) {
  * 
  * @return size_t Number of free frames. 
  */
-size_t pmm_free_frames() { 
+size_t pmm_free_frames(void) { 
     return free_frame_count; 
 }

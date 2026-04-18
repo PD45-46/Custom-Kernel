@@ -8,8 +8,34 @@
 #include "memory/pmm.h"
 #include "memory/vmm.h"
 #include "memory/heap.h"
+#include "process/scheduler.h"
+#include "process/process.h"
+#include <stdlib.h> 
 
-void kernel_main() { 
+void process_A(void) { 
+    while(1) { 
+        vga_print("A "); 
+        asm volatile("hlt"); 
+    }
+}
+
+void process_B(void) { 
+    while(1) { 
+        vga_print("B "); 
+        asm volatile("hlt"); 
+    }
+
+}
+
+void process_C(void) {
+    while(1) { 
+        vga_print("C "); 
+        asm volatile("hlt"); 
+    } 
+}
+
+
+void kernel_main(void) { 
     vga_init(); 
     vga_print("Kernel Booting... \n"); 
 
@@ -37,10 +63,24 @@ void kernel_main() {
     heap_init();
     vga_print("[OK] Heap\n");
 
-    vga_print("Kernel ready.\n");
+    scheduler_init(); 
+    vga_print("[OK] Scheduler\n"); 
 
-    /* enable interrupts */
-    asm volatile("sti");
+    process_t *a = process_create(process_A); 
+    process_t *b = process_create(process_B); 
+    process_t *c = process_create(process_C); 
+
+    scheduler_add(a); 
+    scheduler_add(b); 
+    scheduler_add(c); 
+
+    vga_print("Starting scheduler... \n"); 
+
+    scheduler_start(); 
+    // context_switch(a, b); 
+
+    // /* enable interrupts */
+    // asm volatile("sti");
 
     /* hang */
     for(;;) asm volatile("hlt"); 
