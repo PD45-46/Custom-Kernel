@@ -29,4 +29,6 @@ void vga_print(const char *str);
 void vga_putchar(char c); 
 void vga_set_colour(vga_colour_t fg, vga_colour_t bg); 
 void vga_clear(void); 
-void vga_print_hex(uint64_t n); 
+void vga_print_hex(uint64_t val); 
+void vga_print_int(int64_t val); 
+void vga_print_uint(uint64_t val); 

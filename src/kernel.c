@@ -28,8 +28,10 @@ void process_B(void) {
 }
 
 void process_C(void) {
+    int arr[6] = {1, 2, 3, 4, 5, 6};   
     while(1) { 
-        vga_print("C "); 
+        uint64_t t = timer_ticks(); 
+        vga_print_int(arr[t % 6] + 1); 
         asm volatile("hlt"); 
     } 
 }

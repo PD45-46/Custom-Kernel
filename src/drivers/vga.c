@@ -55,18 +55,42 @@ void vga_print(const char *str) {
     }
 }
 
-void vga_print_hex(uint64_t n) {
+void vga_print_hex(uint64_t val) {
     vga_print("0x");
     char buf[17];
     int i = 0;
-    if (n == 0) { vga_print("0"); return; }
-    while (n) {
-        uint8_t nibble = n & 0xF;
+    if(val == 0) { vga_print("0"); return; }
+    while(val) {
+        uint8_t nibble = val & 0xF;
         buf[i++] = nibble < 10 ? '0' + nibble : 'A' + nibble - 10;
-        n >>= 4;
+        val >>= 4;
     }
     // buf is reversed
     for (int j = i - 1; j >= 0; j--) vga_putchar(buf[j]);
+}
+
+void vga_print_uint(uint64_t val) { 
+    char buf[21]; 
+    buf[20] = '\0'; 
+    int i = 19; 
+    if(val == 0) { 
+        vga_putchar('0'); 
+        return; 
+    }
+    while(val > 0) { 
+        buf[i--] = '0' + (val % 10); 
+        val /= 10;  
+    }
+    vga_print(&buf[i+1]); 
+}
+
+void vga_print_int(int64_t val) { 
+    if(val < 0) { 
+        vga_putchar('-'); 
+        vga_print_uint((uint64_t)(-val)); 
+    } else { 
+        vga_print_uint((uint64_t)val); 
+    }
 }
 
 void vga_init(void) { 
