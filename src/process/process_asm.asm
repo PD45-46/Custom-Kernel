@@ -20,3 +20,5 @@ process_trampoline_fn:
     cli
     hlt
     jmp .dead
+
+section .note.GNU-stack noalloc noexec nowrite progbits
