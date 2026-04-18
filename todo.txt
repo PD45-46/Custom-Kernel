@@ -1,0 +1,25 @@
+process.c — process struct creation and destruction
+context.asm — the register save/restore context switch routine
+scheduler.c — round-robin queue, hook into timer interrupt
+syscall.c — syscall instruction handler and dispatch table
+userspace — ring 3 process in its own address space
+
+
+
+CPU Context Switching 
+A process is nothing more than a snapshot of the CPU state plus a stack. When the process
+isn't running, the CPU state and stack (registers' state) is saved in memory. When running
+again, those values are pulled to resume the process. Context switching is to do this between 
+multiple processes. 
+1. Save process A's RSP
+2. Load process B's RSP 
+3. Pop process B's registers off it's stack 
+4. Return --- but now returning into process B, not A. 
+This is done every time the timer goes off. 
+
+The Process Big-Bang 
+When the first process is created, there is nothing on the stack as it has never run before --- 
+it needs to be faked. The stack is set up so that it looks like a process was interrupted mid-execution 
+and had all of it's registers saved. When context switching, it pops RIP and jumps there. Put the 
+process's entry function at the right place on the initial stack. The first time the scheduler 
+switches to a new process, it returns into that process's entry function. 
