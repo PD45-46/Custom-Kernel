@@ -101,8 +101,5 @@ void scheduler_start(void) {
     next->state = PROCESS_RUNNING;
     current = next;
 
-    // /* enable interrupts */
-    // asm volatile("sti");
-
     context_switch(&boot_context, next);
 }

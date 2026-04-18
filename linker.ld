@@ -1,17 +1,21 @@
+ENTRY(_start)
+
 PHDRS {
     text PT_LOAD FLAGS(5);    /* r-x */
     data PT_LOAD FLAGS(6);    /* rw- */
 }
 
 SECTIONS {
-    . = 1M;
+    . = 1M;                     /* load kernel at 1MB */
 
-    .text : { 
+    PROVIDE(kernel_start = .);
+
+    .text : {
         KEEP(*(.multiboot))
         *(.text)
     } :text
 
-    .rodata : { *(.rodata) } :data
+    .rodata : { *(.rodata) } :text
 
     .data : { *(.data) } :data
 
@@ -19,4 +23,6 @@ SECTIONS {
         *(COMMON)
         *(.bss)
     } :data
+
+    PROVIDE(kernel_end = .);
 }

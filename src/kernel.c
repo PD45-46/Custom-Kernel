@@ -77,12 +77,10 @@ void kernel_main(void) {
     scheduler_add(c); 
 
     vga_print("Starting scheduler... \n"); 
+    /* allow interrupts */
+    asm volatile("sti");
 
     scheduler_start(); 
-    // context_switch(a, b); 
-
-    // /* enable interrupts */
-    // asm volatile("sti");
 
     /* hang */
     for(;;) asm volatile("hlt"); 
