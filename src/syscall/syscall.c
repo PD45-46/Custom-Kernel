@@ -90,7 +90,7 @@ static uint64_t sys_getpid(void) {
  */
 int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) { 
     /* Serials... */
-
+    (void)arg3; 
     switch(num) { 
         case SYS_WRITE: return sys_write(arg1, arg2); 
         case SYS_EXIT:  return sys_exit(arg1); 

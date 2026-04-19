@@ -18,10 +18,15 @@
 #include "../tests/ktest.h"
 
 extern ktest_t pmm_tests[];  extern int pmm_test_count;
+extern ktest_t heap_tests[]; extern int heap_test_count; 
+extern ktest_t process_tests[]; extern int process_test_count; 
 
 static void run_all_tests(void) {
     serial_print("\n=== RUNNING KERNEL TESTS ===\n");
     ktest_run("PMM", pmm_tests, pmm_test_count);
+    ktest_run("HEAP", heap_tests, heap_test_count); 
+    ktest_run("PROCESS", process_tests, process_test_count); 
+
     serial_print("=== TESTS COMPLETE ===\n");
 }
 
@@ -59,60 +64,41 @@ void process_C(void) {
 
 
 void kernel_main(void) { 
-    serial_init(); 
+    serial_init();
+    vga_init();
+    vga_print("Kernel Booting...\n");
 
-    vga_init(); 
-    vga_print("Kernel Booting... \n"); 
+    gdt_init();      vga_print("[OK] GDT\n");
+    idt_init();      vga_print("[OK] IDT\n");
+    pic_init();      vga_print("[OK] PIC\n");
+    
+    keyboard_init(); vga_print("[OK] Keyboard\n");
+    pmm_init();      vga_print("[OK] PMM\n");
+    vmm_init();      vga_print("[OK] VMM\n");
+    heap_init();     vga_print("[OK] Heap\n");
 
-    gdt_init(); 
-    vga_print("[OK] GDT\n"); 
+#ifdef RUN_TESTS
+    vga_print("[RUNNING TESTS]\n");
+    asm volatile("cli"); 
+    run_all_tests();
+    asm volatile("sti"); 
+    vga_print("[TESTS DONE]\n");
+#endif
 
-    idt_init(); 
-    vga_print("[OK] IDT\n"); 
+    timer_init(100); vga_print("[OK] Timer\n");
+    scheduler_init();  vga_print("[OK] Scheduler\n");
+    syscall_init();    vga_print("[OK] Syscall\n");
 
-    pic_init(); 
-    vga_print("[OK] PIC\n"); 
+    process_t *a = process_create(process_A);
+    process_t *b = process_create(process_B);
+    process_t *c = process_create(process_C);
+    scheduler_add(a);
+    scheduler_add(b);
+    scheduler_add(c);
 
-    timer_init(100);    /* 100Hz */
-    vga_print("[OK] Timer\n");
-
-    keyboard_init();
-    vga_print("[OK] Keyboard\n");
-
-    pmm_init();
-    vga_print("[OK] Physical Memory Manager\n");
-
-    vmm_init();
-    vga_print("[OK] Virtual Memory Manager\n");
-
-    heap_init();
-    vga_print("[OK] Heap\n");
-
-    #ifdef RUN_TESTS
-        run_all_tests(); 
-    #endif
-
-
-    scheduler_init(); 
-    vga_print("[OK] Scheduler\n"); 
-
-    syscall_init(); 
-    vga_print("[OK] Syscall\n");
-
-    process_t *a = process_create(process_A); 
-    process_t *b = process_create(process_B); 
-    process_t *c = process_create(process_C); 
-
-    scheduler_add(a); 
-    scheduler_add(b); 
-    scheduler_add(c); 
-
-    vga_print("Starting scheduler... \n"); 
-    /* allow interrupts */
+    vga_print("Starting scheduler...\n");
     asm volatile("sti");
+    scheduler_start();
 
-    scheduler_start(); 
-
-    /* hang */
-    for(;;) asm volatile("hlt"); 
+    for(;;) asm volatile("hlt");
 }

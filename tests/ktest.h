@@ -1,5 +1,6 @@
 #pragma once
 #include "../src/drivers/serial.h"
+#include <stddef.h> 
 
 typedef void (*test_fn_t)(void); 
 
