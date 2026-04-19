@@ -1,4 +1,5 @@
 // #include "kernel.h"
+#include "drivers/serial.h"
 #include "drivers/vga.h"
 #include "cpu/gdt.h"
 #include "cpu/idt.h"
@@ -11,6 +12,20 @@
 #include "process/scheduler.h"
 #include "process/process.h"
 #include <stdlib.h> 
+
+
+#ifdef RUN_TESTS 
+#include "../tests/ktest.h"
+
+extern ktest_t pmm_tests[];  extern int pmm_test_count;
+
+static void run_all_tests(void) {
+    serial_print("\n=== RUNNING KERNEL TESTS ===\n");
+    ktest_run("PMM", pmm_tests, pmm_test_count);
+    serial_print("=== TESTS COMPLETE ===\n");
+}
+
+#endif
 
 
 // TODO MOVE 
@@ -44,6 +59,8 @@ void process_C(void) {
 
 
 void kernel_main(void) { 
+    serial_init(); 
+
     vga_init(); 
     vga_print("Kernel Booting... \n"); 
 
@@ -70,6 +87,11 @@ void kernel_main(void) {
 
     heap_init();
     vga_print("[OK] Heap\n");
+
+    #ifdef RUN_TESTS
+        run_all_tests(); 
+    #endif
+
 
     scheduler_init(); 
     vga_print("[OK] Scheduler\n"); 
