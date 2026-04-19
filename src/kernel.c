@@ -12,6 +12,12 @@
 #include "process/process.h"
 #include <stdlib.h> 
 
+
+// TODO MOVE 
+#define SYSCALL_STACK_SIZE 16384 
+static uint8_t syscall_stack[SYSCALL_STACK_SIZE] __attribute__((aligned(16)));
+uint64_t kernel_stack_top = (uint64_t)(syscall_stack + SYSCALL_STACK_SIZE);
+
 void process_A(void) { 
     while(1) { 
         vga_print("A "); 
@@ -67,6 +73,9 @@ void kernel_main(void) {
 
     scheduler_init(); 
     vga_print("[OK] Scheduler\n"); 
+
+    syscall_init(); 
+    vga_print("[OK] Syscall\n");
 
     process_t *a = process_create(process_A); 
     process_t *b = process_create(process_B); 

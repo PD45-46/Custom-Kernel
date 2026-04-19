@@ -1,20 +1,36 @@
 #pragma once
 #include <stdint.h> 
 
+/*
+When a user program executes a syscall instruction, the CPU does the following: 
+    - Saves RIP (return address) in RCX 
+    - Saves RFLAGS into R11
+    - Loads new RIP from LSTAR MSR (handler address) 
+    - Switches CS to the kernel code selector
+    - Note: Do not switch stack; remain on user stack 
+
+Syscall Convention: 
+    - RAX = syscall number 
+    - RDI = arg 1 
+    - RSI = arg 2
+    - RDX = arg 3
+    - R10 = arg 4 (RCX is clobbered by syscall saving RIP)
+    - RAX = return value 
+
+*/
+
+
+
 #define SYS_WRITE 0 
-#define SYS_EXIT 1
+#define SYS_EXIT  1
 #define SYS_YIELD 2
 #define SYSGETPID 3
 
+
+
+
+
+
 void syscall_init(); 
-/** 
- * @brief Dispatches the correct kernel function depending on the inputs given. 
- * @param num which syscall to use, e.g: SYS_WRITE, SYS_EXIT...  
- * @param a1 argument 1 passed to syscall 
- * @param a2 argument 2 passed to syscall 
- * @param a3 argument 3 passed to syscall 
- * @return Different for each case: 
- *  - SYS_WRITE: Number of bytes written 
- *  - SYS...  
- */
-uint64_t syscall_handler(uint64_t num, uint64_t a1, uint64_t a2, uint64_t a3); 
+
+int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3); 
