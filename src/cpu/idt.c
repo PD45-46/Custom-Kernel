@@ -99,7 +99,8 @@ void idt_register_handler(uint8_t n, void (*handler)(registers_t *)) {
 }
 
 
-static void page_fault_handler(registers_t *regs) { 
+static void page_fault_handler(registers_t *regs) {
+    (void)regs;  
     uint64_t fault_addr; 
     asm volatile("mov %%cr2, %0" : "=r"(fault_addr)); 
     vga_print("PAGE FAULT at addr=0x"); 

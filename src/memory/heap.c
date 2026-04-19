@@ -128,6 +128,7 @@ void kfree(void *ptr) {
     while(curr && curr->next) { 
         if(curr->free && curr->next->free) { 
             curr->size += sizeof(block_header_t) + curr->next->size; 
+            curr->next = curr->next->next; 
         } else { 
             curr = curr->next; 
         }
