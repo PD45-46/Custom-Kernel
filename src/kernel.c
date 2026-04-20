@@ -21,6 +21,12 @@ extern ktest_t pmm_tests[];  extern int pmm_test_count;
 extern ktest_t heap_tests[]; extern int heap_test_count; 
 extern ktest_t process_tests[]; extern int process_test_count; 
 extern ktest_t gdt_tests[]; extern int gdt_test_count; 
+extern ktest_t idt_tests[]; extern int idt_test_count; 
+extern ktest_t pic_tests[]; extern int pic_test_count; 
+extern ktest_t timer_tests[]; extern int timer_test_count; 
+
+
+
 
 
 static void run_all_tests(void) {
@@ -28,7 +34,13 @@ static void run_all_tests(void) {
     ktest_run("PMM", pmm_tests, pmm_test_count);
     ktest_run("HEAP", heap_tests, heap_test_count); 
     ktest_run("PROCESS", process_tests, process_test_count); 
-    ktest_run("GDT", process_tests, process_test_count); 
+    ktest_run("GDT", gdt_tests, gdt_test_count); 
+    ktest_run("IDT", idt_tests, idt_test_count); 
+    ktest_run("PIC", pic_tests, pic_test_count); 
+    ktest_run("TIMER", timer_tests, timer_test_count); 
+
+
+
 
     serial_print("=== TESTS COMPLETE ===\n");
 }
