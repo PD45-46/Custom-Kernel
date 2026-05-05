@@ -1,6 +1,7 @@
 #include "scheduler.h"
 #include "process.h"
 #include "../drivers/vga.h"
+#include "../cpu/gdt.h"
 #include <stdint.h> 
 #include <stddef.h> 
 
@@ -91,7 +92,15 @@ void scheduler_tick(void) {
     next->state = PROCESS_RUNNING; 
     current = next; 
 
-    vga_print("c-switch\n"); 
+    /* 
+    If next is user process (has its own page table), 
+    update TSS.RSP0 to hardware interrupts from ring 3 
+    switch to the correct kernel stack.  
+    */
+   if(next->page_table) { 
+        tss_set_kernel_stack(next->kernel_stack); 
+   }
+
     context_switch(curr, next); 
 }
 

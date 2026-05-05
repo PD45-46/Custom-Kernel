@@ -118,6 +118,34 @@ process_t *process_create_user(void (entry)(void)) {
     uint64_t entry_phys = vmm_get_phys(ENTRY_ADDR((uint64_t)entry)); 
     vmm_map_in(proc->page_table, USER_CODE_VIRT, entry_phys, PTE_PRESENT | PTE_USER); 
     uint64_t entry_virt = USER_CODE_VIRT + ((uint64_t)entry & 0xFFULL); 
+    uint64_t entry_page_virt = (uint64_t)entry & ~0xFFFULL;
+
+    vga_print("entry fn addr:  0x"); vga_print_hex((uint64_t)entry);      vga_print("\n");
+    vga_print("entry page virt:0x"); vga_print_hex(entry_page_virt);       vga_print("\n");
+    vga_print("entry_phys:     0x"); vga_print_hex(entry_phys);            vga_print("\n");
+    vga_print("entry_virt:     0x"); vga_print_hex(entry_virt);            vga_print("\n");
+    vga_print("user page_table:0x"); vga_print_hex(proc->page_table);      vga_print("\n");
+
+    if (entry_phys == 0) {
+        vga_print("ERROR: vmm_get_phys returned 0 — kernel fn not mapped\n");
+        for(;;) asm volatile("hlt");
+    }
+
+    vmm_map_in(proc->page_table, USER_CODE_VIRT, entry_phys,
+               PTE_PRESENT | PTE_USER);
+
+    /* verify the mapping took effect */
+    uint64_t verify_cur, verify_phys;
+    asm volatile("mov %%cr3, %0" : "=r"(verify_cur));
+    vmm_switch_address_space(proc->page_table);
+    verify_phys = vmm_get_phys(USER_CODE_VIRT);
+    vmm_switch_address_space(verify_cur);
+
+    vga_print("verify mapping: 0x"); vga_print_hex(verify_phys); vga_print("\n");
+    if (verify_phys == 0) {
+        vga_print("ERROR: mapping not installed in user PML4\n");
+        for(;;) asm volatile("hlt");
+    }
     
     /*
     Setup inital kernel stack with retq frame. 

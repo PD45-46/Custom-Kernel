@@ -117,11 +117,13 @@ uint64_t vmm_get_phys(uint64_t virt) {
  * CR3 holds the physical address of current PML4 table. 
  */
 void vmm_init(void) { 
-    // uint64_t cr3; 
-    // asm volatile("mov %%cr3, %0" : "=r"(cr3)); 
-
-    // kernel_pml4 = (uint64_t *)ENTRY_ADDR(cr3); 
-    vga_print("VMM does nothing for now: make sure to fix/remove\n"); 
+    uint64_t cr3; 
+    asm volatile("mov %%cr3, %0" : "=r"(cr3)); 
+    vga_print("Physical CR3: 0x"); vga_print_hex(cr3); vga_print("\n");
+    
+    // Test if the VMM can find its own code
+    uint64_t test_phys = vmm_get_phys((uint64_t)vmm_init);
+    vga_print("VMM_INIT Phys: 0x"); vga_print_hex(test_phys); vga_print("\n");
 }
 
 
