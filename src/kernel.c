@@ -132,11 +132,11 @@ void kernel_main(void) {
     process_t *a = process_create(process_A);
     process_t *b = process_create(process_B);
     process_t *c = process_create(process_C);
-    // process_t *u = process_create_user(user_process); <- Issue... 
+    process_t *u = process_create_user(user_process); // <- Issue... 
     scheduler_add(a);
     scheduler_add(b);
     scheduler_add(c);
-    // scheduler_add(u); 
+    scheduler_add(u); 
 
     vga_print("Starting scheduler...\n");
     asm volatile("sti");

@@ -139,20 +139,24 @@ uint64_t vmm_create_address_space(void) {
     uint64_t *new_pml4 = (uint64_t *)pmm_alloc(); 
     if(!new_pml4) return 0; 
 
-    /* Zero out PML4 */
-    for(int i = 0; i < NUM_PAGE_LEVEL_ENTRIES; i++) new_pml4[i] = 0;
-    
     /* Get current PML4 to copy kernel mappings from */
     uint64_t cur_cr3;
     asm volatile("mov %%cr3, %0" : "=r"(cur_cr3));
     uint64_t *cur_pml4 = (uint64_t *)ENTRY_ADDR(cur_cr3);
 
-    /* 
-    Copy upper half of entries (index 256 - 511) 
-    256 corresponds to the virtual address 0xFFFF800000000000
-    These entries map the kernel --- shared across all processes. 
-    */
-    for(int i = 256; i < NUM_PAGE_LEVEL_ENTRIES; i++) { 
+    // /* Zero out PML4 */
+    // for(int i = 0; i < NUM_PAGE_LEVEL_ENTRIES; i++) new_pml4[i] = 0;
+
+    // /* 
+    // Copy upper half of entries (index 256 - 511) 
+    // 256 corresponds to the virtual address 0xFFFF800000000000
+    // These entries map the kernel --- shared across all processes. 
+    // */
+    // for(int i = 256; i < NUM_PAGE_LEVEL_ENTRIES; i++) { 
+    //     new_pml4[i] = cur_pml4[i]; 
+    // }
+
+    for(int i = 0; i < NUM_PAGE_LEVEL_ENTRIES; i++) { // 512
         new_pml4[i] = cur_pml4[i]; 
     }
     
