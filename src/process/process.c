@@ -18,8 +18,8 @@ static uint32_t next_pid = 1;
 extern void process_trampoline_fn(void); 
 extern void process_user_trampoline_fn(void);
 
-// _Static_assert(offsetof(process_t, page_table) == 48,
-//                "update PROCESS_PAGE_TABLE in context.asm");
+_Static_assert(offsetof(process_t, page_table) == 176,
+               "update PROCESS_PAGE_TABLE in context.asm");
 
 /**
  * @brief Allocates and initialises a new process. 
@@ -117,7 +117,7 @@ process_t *process_create_user(void (entry)(void)) {
     */
     uint64_t entry_phys = vmm_get_phys(ENTRY_ADDR((uint64_t)entry)); 
     vmm_map_in(proc->page_table, USER_CODE_VIRT, entry_phys, PTE_PRESENT | PTE_USER); 
-    uint64_t entry_virt = USER_CODE_VIRT + (ENTRY_ADDR((uint64_t)entry));
+    uint64_t entry_virt = USER_CODE_VIRT + ((uint64_t)entry & 0xFFULL); 
     
     /*
     Setup inital kernel stack with retq frame. 
@@ -130,9 +130,9 @@ process_t *process_create_user(void (entry)(void)) {
     */
     uint64_t *sp = (uint64_t *)(kstack + KERNEL_STACK_SIZE); 
 
-    sp--; *sp = (uint64_t)process_user_trampoline_fn; 
-    sp--; *sp = entry_virt; 
     sp--; *sp = proc->user_stack;
+    sp--; *sp = entry_virt; 
+    sp--; *sp = (uint64_t)process_user_trampoline_fn; 
 
     proc->context.rsp = (uint64_t)sp; 
     return proc; 

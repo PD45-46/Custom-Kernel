@@ -7,7 +7,7 @@
 
 /* TODO CLEAN UP COMMENTS... */
 
-uint64_t *kernel_pml4; 
+// uint64_t *kernel_pml4; 
 
 /**
  * @brief Given a page table entry, get or create the next-level 
@@ -45,11 +45,11 @@ static uint64_t *get_or_create_table(uint64_t *entry, uint64_t flags) {
  * @param flags PTE_WRITABLE, PTE_USER, etc.  
  */
 void vmm_map(uint64_t virt, uint64_t phys, uint64_t flags) { 
-    // uint64_t pml4_phys; 
-    // asm volatile("mov %%cr3, %0" : "=r"(pml4_phys)); 
-    // uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(pml4_phys);
+    uint64_t cur_cr3; 
+    asm volatile("mov %%cr3, %0" : "=r"(cur_cr3)); 
+    uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(cur_cr3); 
 
-    uint64_t *pdpt = get_or_create_table(&kernel_pml4[PML4_INDEX(virt)], PTE_WRITABLE | PTE_USER);
+    uint64_t *pdpt = get_or_create_table(&pml4[PML4_INDEX(virt)], PTE_WRITABLE | PTE_USER);
     uint64_t *pd = get_or_create_table(&pdpt[PDPT_INDEX(virt)], PTE_WRITABLE | PTE_USER); 
     uint64_t *pt = get_or_create_table(&pd[PD_INDEX(virt)], PTE_WRITABLE | PTE_USER);
     pt[PT_INDEX(virt)] = phys | flags | PTE_PRESENT; 
@@ -65,11 +65,11 @@ void vmm_map(uint64_t virt, uint64_t phys, uint64_t flags) {
  * @param virt virtual address
  */
 void vmm_unmap(uint64_t virt) { 
-    // uint64_t pml4_phys; 
-    // asm volatile("mov %%cr3, %0" : "=r"(pml4_phys));
-    // uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(pml4_phys); 
+    uint64_t cur_cr3; 
+    asm volatile("mov %%cr3, %0" : "=r"(cur_cr3));
+    uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(cur_cr3); 
 
-    uint64_t pml4e = kernel_pml4[PML4_INDEX(virt)]; 
+    uint64_t pml4e = pml4[PML4_INDEX(virt)]; 
     if(!(pml4e & PTE_PRESENT)) return; 
     uint64_t *pdpt = (uint64_t *)ENTRY_ADDR(pml4e); 
 
@@ -92,11 +92,11 @@ void vmm_unmap(uint64_t virt) {
  * @return uint64_t physical address 
  */
 uint64_t vmm_get_phys(uint64_t virt) { 
-    // uint64_t pml4_phys;
-    // asm volatile("mov %%cr3, %0" : "=r"(pml4_phys));
-    // uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(pml4_phys);
+    uint64_t cur_cr3; 
+    asm volatile("mov %%cr3, %0" : "=r"(cur_cr3));
+    uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(cur_cr3); 
 
-    uint64_t pml4e = kernel_pml4[PML4_INDEX(virt)]; 
+    uint64_t pml4e = pml4[PML4_INDEX(virt)]; 
     if(!(pml4e & PTE_PRESENT)) return 0; 
     uint64_t *pdpt = (uint64_t *)ENTRY_ADDR(pml4e); 
 
@@ -117,10 +117,11 @@ uint64_t vmm_get_phys(uint64_t virt) {
  * CR3 holds the physical address of current PML4 table. 
  */
 void vmm_init(void) { 
-    uint64_t cr3; 
-    asm volatile("mov %%cr3, %0" : "=r"(cr3)); 
+    // uint64_t cr3; 
+    // asm volatile("mov %%cr3, %0" : "=r"(cr3)); 
 
-    kernel_pml4 = (uint64_t *)ENTRY_ADDR(cr3); 
+    // kernel_pml4 = (uint64_t *)ENTRY_ADDR(cr3); 
+    vga_print("VMM does nothing for now: make sure to fix/remove\n"); 
 }
 
 

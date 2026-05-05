@@ -5,6 +5,7 @@ void gdt_init(void);
 void syscall_init(void); 
 
 
+
 /*
 5 entries: 
 0 - null descriptor (always 0)
@@ -13,7 +14,7 @@ void syscall_init(void);
 3 - user code segment (ring 3, executable)
 4 - user data segment (ring 3, writable)
 */
-static gdt_entry_t gdt[6]; 
+static gdt_entry_t gdt[5]; 
 static gdt_ptr_t gdt_ptr; 
 
 /** 

@@ -6,7 +6,7 @@
 global context_switch 
 
 %define PROCESS_CONTEXT_RSP 8
-%define PROCESS_PAGE_TABLE 48 ; Offset of page table in process_t 
+%define PROCESS_PAGE_TABLE 176 ; Offset of page table in process_t 
 
 context_switch: 
 

@@ -91,6 +91,7 @@ void scheduler_tick(void) {
     next->state = PROCESS_RUNNING; 
     current = next; 
 
+    vga_print("c-switch\n"); 
     context_switch(curr, next); 
 }
 

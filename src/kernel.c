@@ -78,6 +78,7 @@ void process_C(void) {
 }
 
 void user_process(void) { 
+    vga_print("Start user process\n"); 
     char msg[] = "Hello World from ring 3\n"; 
     /* 
     Cant use VGA in ring 3 so gotta use syscalls 
@@ -131,11 +132,11 @@ void kernel_main(void) {
 
     process_t *a = process_create(process_A);
     process_t *b = process_create(process_B);
-    process_t *c = process_create(process_C);
-    process_t *u = process_create_user(user_process); // <- Issue... 
+    // process_t *c = process_create(process_C);
+    process_t *u = process_create_user(user_process); 
     scheduler_add(a);
     scheduler_add(b);
-    scheduler_add(c);
+    // scheduler_add(c);
     scheduler_add(u); 
 
     vga_print("Starting scheduler...\n");
