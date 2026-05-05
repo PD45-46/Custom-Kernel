@@ -28,6 +28,7 @@ static void test_pic_irq1_unmasked(void) {
 }
 
 static void test_pic_mask_unmask(void) { 
+    pic_unmask(5); // ensure start from an known unmasked state 
     uint8_t before = inb(PIC1_DATA); 
     pic_mask(5); 
     uint8_t masked = inb(PIC1_DATA); 

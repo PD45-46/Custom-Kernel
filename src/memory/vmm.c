@@ -7,64 +7,6 @@
 
 /* TODO CLEAN UP COMMENTS... */
 
-
-/* 
-Page Table Bitmap 
-
-63                              12 11            0
-+--------------------------------+---------------+
-|   Physical Address (bits 51-12) |   Flags       |
-+--------------------------------+---------------+
-
-Bit(s)   Meaning
-----------------------------------------
-0        Present (P)
-1        Writable (R/W)
-2        User (U/S)
-3        Write-through
-4        Cache disable                                      -- Unhandled!
-5        Accessed                                           -- Unhandled!
-6        Dirty (only in PT level)                           -- Unhandled!
-7        Huge page (in PD/PT levels)
-8        Global
-9–11     Available for OS (I can use these!!!!)
-12–51    Physical address (aligned to 4KB)
-52–62    Available / reserved (depends on CPU)
-63       NX (No Execute) (if supported)                     -- Unhandled!
-*/
-
-/* 
-Page table flags. 
-The flag bits remain in the bottom 12 bits of each 
-page table entry. 
-*/
-
-#define PTE_PRESENT (1ULL << 0)   /* page is in memory */
-#define PTE_WRITABLE (1ULL << 1)   /* page can be written */
-#define PTE_USER (1ULL << 2)   /* accessible from ring 3 */
-#define PTE_HUGE (1ULL << 7)   /* 2MB page instead of 4KB */
-
-/*
-x86_64 uses 4-level paging: PML4 -> PDPT -> PD -> PT 
-Each page level is a page (KB) containing 512 8-byte entries. 
-A virtual address breaks down as: 
-    bits 49-39: PML4 (Page Map Level 4)             index  
-    bits 38-30: PDPT (Page Directory Pointer Table) index
-    bits 29-21: PD   (Page Directory)               index
-    bits 20-12: PT   (Page Table)                   index
-    bits 11-0: page offset
-*/
-
-#define PML4_INDEX(addr) (((addr) >> 39) & 0x1FF)
-#define PDPT_INDEX(addr) (((addr) >> 30) & 0x1FF)
-#define PD_INDEX(addr) (((addr) >> 21) & 0x1FF)
-#define PT_INDEX(addr) (((addr) >> 12) & 0x1FF)
-
-#define NUM_PAGE_LEVEL_ENTRIES 512 
-
-// mask to strip flags and get physical address from entry. 
-#define ENTRY_ADDR(entry) ((entry) & ~0xFFFULL)
-
 uint64_t *kernel_pml4; 
 
 /**
@@ -180,3 +122,71 @@ void vmm_init(void) {
 
     kernel_pml4 = (uint64_t *)ENTRY_ADDR(cr3); 
 }
+
+
+/**
+ * @brief Allocates a new PML4 and maps the kernel to it's upper half. 
+ *        Every user process needs a kernel mapped to it's upper half so 
+ *        that when a syscall is used and the CPU stays in the same address
+ *        space, the kernel code and data are accessible. 
+ * 
+ *        Lower half entries of the process start empty --- the process gets 
+ *        no user mappings yet. 
+ * 
+ * @return uint64_t Physical address of the new PML4.  
+ */
+uint64_t vmm_create_address_space(void) { 
+    uint64_t *new_pml4 = (uint64_t *)pmm_alloc(); 
+    if(!new_pml4) return 0; 
+
+    /* Zero out PML4 */
+    for(int i = 0; i < NUM_PAGE_LEVEL_ENTRIES; i++) new_pml4[i] = 0;
+    
+    /* Get current PML4 to copy kernel mappings from */
+    uint64_t cur_cr3;
+    asm volatile("mov %%cr3, %0" : "=r"(cur_cr3));
+    uint64_t *cur_pml4 = (uint64_t *)ENTRY_ADDR(cur_cr3);
+
+    /* 
+    Copy upper half of entries (index 256 - 511) 
+    256 corresponds to the virtual address 0xFFFF800000000000
+    These entries map the kernel --- shared across all processes. 
+    */
+    for(int i = 256; i < NUM_PAGE_LEVEL_ENTRIES; i++) { 
+        new_pml4[i] = cur_pml4[i]; 
+    }
+    
+    return (uint64_t)new_pml4; 
+}
+
+/**
+ * @brief Loads a new PML4 into CR3. This is what the scheduler calls 
+ *        on every context switch when switching between processes with 
+ *        different address spaces. 
+ * 
+ * @param pml4_phys PML4 physical address 
+ */
+void vmm_switch_address_space(uint64_t pml4_phys) { 
+    asm volatile("mov %0, %%cr3" : : "r"(pml4_phys) : "memory"); 
+}
+
+/**
+ * @brief Map a virtual address in a specific address space rather than 
+ *        the current one. Temporarily switches the address space, maps 
+ *        the page, then switches back.
+ * 
+ *        Used during process setup before the process's address space is loaded. 
+ * 
+ * @param pml4_phys Physical address of the new process's PML4 table. 
+ * @param virt The virtual address where to process expects the data to be. 
+ * @param phys Physical address of the actual RAM frame to link to virtual address. 
+ * @param flags For permissions. 
+ */
+void vmm_map_in(uint64_t pml4_phys, uint64_t virt, uint64_t phys, uint64_t flags) { 
+    uint64_t cur_cr3; 
+    asm volatile("mov %%cr3, %0" : "=r"(cur_cr3)); 
+    vmm_switch_address_space(pml4_phys); 
+    vmm_map(virt, phys, flags);
+    vmm_switch_address_space(cur_cr3);  
+}
+
