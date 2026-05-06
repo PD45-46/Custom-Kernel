@@ -30,7 +30,7 @@ typedef struct process {
 
 #define USER_STACK_VIRT  0x8000002000ULL  /* top of user stack VA */
 #define USER_STACK_PAGES 4                /* 16KB user stack      */
-#define USER_CODE_VIRT   0x8000000000ULL  /* where user code lives */
+#define USER_CODE_VIRT   0x8000200000ULL  /* where user code lives */
 
 process_t *process_create(void (*entry)(void)); 
 process_t *process_create_user(void (*entry)(void)); 

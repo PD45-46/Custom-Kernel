@@ -42,6 +42,12 @@ static uint64_t *get_or_create_table(uint64_t *entry, uint64_t flags) {
         if(flags & PTE_USER) { 
             *entry |= PTE_USER; 
         }
+        if(flags & PTE_WRITABLE) { 
+            *entry |= PTE_WRITABLE;
+        }
+        if(flags & PTE_PRESENT) { 
+            *entry |= PTE_PRESENT; 
+        }
     }
     return (uint64_t *)ENTRY_ADDR(*entry); 
 }
