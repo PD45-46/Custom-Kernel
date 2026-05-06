@@ -9,6 +9,8 @@
 
 // uint64_t *kernel_pml4; 
 
+
+
 /**
  * @brief Given a page table entry, get or create the next-level 
  *        table address the table points to. 
@@ -22,7 +24,7 @@ static uint64_t *get_or_create_table(uint64_t *entry, uint64_t flags) {
         void *frame = pmm_alloc(); 
 
         if(!frame) { 
-            vga_print("[VMM] pmm_alloc failed in get_or_create-table\n"); 
+            vga_print("[VMM] pmm_alloc failed in get_or_create_table\n"); 
             for(;;) asm volatile("hlt"); 
         }
 
@@ -30,7 +32,16 @@ static uint64_t *get_or_create_table(uint64_t *entry, uint64_t flags) {
         for(int i = 0; i < NUM_PAGE_LEVEL_ENTRIES; i++) { 
             table[i] = 0; 
         }
-        *entry = (uint64_t)frame | flags | PTE_PRESENT; 
+        *entry = (uint64_t)frame | flags | PTE_PRESENT;
+        // *entry = (uint64_t)frame | PTE_PRESENT | PTE_WRITABLE | PTE_USER;
+    } else { 
+        if(*entry & PTE_HUGE) { 
+            vga_print("[VMM] FATAL: Tried to traverse a huge page\n"); 
+            for(;;) asm volatile("hlt"); 
+        }
+        if(flags & PTE_USER) { 
+            *entry |= PTE_USER; 
+        }
     }
     return (uint64_t *)ENTRY_ADDR(*entry); 
 }
@@ -92,23 +103,31 @@ void vmm_unmap(uint64_t virt) {
  * @return uint64_t physical address 
  */
 uint64_t vmm_get_phys(uint64_t virt) { 
-    uint64_t cur_cr3; 
+    uint64_t cur_cr3;
     asm volatile("mov %%cr3, %0" : "=r"(cur_cr3));
-    uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(cur_cr3); 
+    uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(cur_cr3);
 
-    uint64_t pml4e = pml4[PML4_INDEX(virt)]; 
-    if(!(pml4e & PTE_PRESENT)) return 0; 
-    uint64_t *pdpt = (uint64_t *)ENTRY_ADDR(pml4e); 
+    uint64_t pml4e = pml4[PML4_INDEX(virt)];
+    if (!(pml4e & PTE_PRESENT)) return 0;
+    uint64_t *pdpt = (uint64_t *)ENTRY_ADDR(pml4e);
 
-    uint64_t pdpte = pdpt[PDPT_INDEX(virt)]; 
-    if(!(pdpte & PTE_PRESENT)) return 0; 
-    uint64_t *pd = (uint64_t *)ENTRY_ADDR(pdpte); 
+    uint64_t pdpte = pdpt[PDPT_INDEX(virt)];
+    if (!(pdpte & PTE_PRESENT)) return 0;
+    /* check for 1GB huge page */
+    if (pdpte & PTE_HUGE)
+        return ENTRY_ADDR(pdpte) + (virt & 0x3FFFFFFFULL);
+    uint64_t *pd = (uint64_t *)ENTRY_ADDR(pdpte);
 
-    uint64_t pde = pd[PD_INDEX(virt)]; 
-    if(!(pde & PTE_PRESENT)) return 0; 
+    uint64_t pde = pd[PD_INDEX(virt)];
+    if (!(pde & PTE_PRESENT)) return 0;
+    /* check for 2MB huge page — this is what the bootloader uses */
+    if (pde & PTE_HUGE)
+        return ENTRY_ADDR(pde) + (virt & 0x1FFFFFULL);
     uint64_t *pt = (uint64_t *)ENTRY_ADDR(pde);
-    
-    return ENTRY_ADDR(pt[PT_INDEX(virt)]); 
+
+    uint64_t pte = pt[PT_INDEX(virt)];
+    if (!(pte & PTE_PRESENT)) return 0;
+    return ENTRY_ADDR(pte); 
 }
 
 /**
@@ -161,6 +180,9 @@ uint64_t vmm_create_address_space(void) {
 
     for(int i = 0; i < NUM_PAGE_LEVEL_ENTRIES; i++) { // 512
         new_pml4[i] = cur_pml4[i]; 
+        if(new_pml4[i] & PTE_PRESENT) { 
+            new_pml4[i] |= PTE_USER; 
+        }
     }
     
     return (uint64_t)new_pml4; 

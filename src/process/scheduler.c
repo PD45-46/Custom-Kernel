@@ -97,9 +97,9 @@ void scheduler_tick(void) {
     update TSS.RSP0 to hardware interrupts from ring 3 
     switch to the correct kernel stack.  
     */
-   if(next->page_table) { 
-        tss_set_kernel_stack(next->kernel_stack); 
-   }
+    if(next->page_table) { 
+            tss_set_kernel_stack(next->kernel_stack); 
+    }
 
     context_switch(curr, next); 
 }
@@ -110,6 +110,10 @@ void scheduler_start(void) {
     process_t *next = current->next;
     next->state = PROCESS_RUNNING;
     current = next;
+
+    if(next->page_table) { 
+        tss_set_kernel_stack(next->kernel_stack); 
+    }
 
     context_switch(&boot_context, next);
 }

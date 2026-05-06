@@ -37,7 +37,7 @@ Verify the GDTR limit matches what was set.
 static void test_gdt_limit_correct(void) { 
     struct __attribute__((packed)) { uint16_t limit; uint64_t base; } gdtr;
     asm volatile("sgdt %0" : "=m"(gdtr));
-    KTEST_ASSERT_EQ(gdtr.limit, (6 * 8) - 1);
+    KTEST_ASSERT_EQ(gdtr.limit, (7 * 8) - 1);
 }
 
 /*

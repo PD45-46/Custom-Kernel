@@ -77,29 +77,39 @@ void process_C(void) {
     } 
 }
 
+/**
+ * Rules for Ring 3 code. 
+ *  - No string literals (they live in the kernel .rodata)
+ *  - No kernel function calls (wrong addresses + ring 3 cant access)
+ *  - Build strings on the stack byte by byte 
+ *  - Communicate only via syscalls 
+ * 
+ */
 void user_process(void) { 
-    vga_print("Start user process\n"); 
-    char msg[] = "Hello World from ring 3\n"; 
-    /* 
-    Cant use VGA in ring 3 so gotta use syscalls 
-    */
-   /* Syscall for write with arg1 as string ptr, and arg2 as string len */
-    asm volatile(
-        "mov $0, %%rax\n"   /* SYS_WRITE = 0 */
-        "mov %0, %%rdi\n"   /* arg1 = string pointer */
-        "mov %1, %%rsi\n"   /* arg2 = length */
-        "syscall\n"
-        :
-        : "r"((uint64_t)msg), "r"((uint64_t)(sizeof(msg)-1))
-        : "rax", "rdi", "rsi"
-    );
-    /* yield after writing */
-    asm volatile(
-        "mov $2, %%rax\n"   /* SYS_YIELD = 2 */
-        "syscall\n"
-        : : : "rax"
-    );
-    for(;;); 
+    char msg[5]; 
+    msg[0] = 'R'; 
+    msg[1] = '3'; 
+    msg[2] = '!'; 
+    msg[3] = '\n'; 
+    msg[4] = '\0'; 
+    while(1) { 
+        uint64_t ptr = (uint64_t)msg; 
+        uint64_t len = sizeof(msg) - 1; 
+
+        /* SYS_WRITE */
+        asm volatile( 
+            "mov $0, %%rax\n"
+            "syscall\n"
+            : : "D"(ptr), "S"(len)
+            : "rax", "rcx", "r11", "memory"
+        ); 
+        /* SYS_YIELD */
+        asm volatile(
+            "mov $2, %%rax\n"
+            "syscall\n"
+            : : : "rax", "rcx", "r11"
+        ); 
+   }
 }
 
 
@@ -130,12 +140,16 @@ void kernel_main(void) {
         vga_print("[TESTS DONE]\n");
     #endif
 
-    process_t *a = process_create(process_A);
-    process_t *b = process_create(process_B);
+    vga_print("Kernel PML4 Index: ");
+    vga_print_int(PML4_INDEX(0x100C00)); // Should be 0
+    vga_print("\n"); 
+
+    // process_t *a = process_create(process_A);
+    // process_t *b = process_create(process_B);
     // process_t *c = process_create(process_C);
     process_t *u = process_create_user(user_process); 
-    scheduler_add(a);
-    scheduler_add(b);
+    // scheduler_add(a);
+    // scheduler_add(b);
     // scheduler_add(c);
     scheduler_add(u); 
 

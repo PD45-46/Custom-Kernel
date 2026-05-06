@@ -116,23 +116,22 @@ process_t *process_create_user(void (entry)(void)) {
     Later, when ELF files are loaded, this will be different. 
     */
     uint64_t entry_phys = vmm_get_phys(ENTRY_ADDR((uint64_t)entry)); 
+    // uint64_t entry_phys = (uint64_t)entry & ~0xFFFULL;
     vmm_map_in(proc->page_table, USER_CODE_VIRT, entry_phys, PTE_PRESENT | PTE_USER); 
-    uint64_t entry_virt = USER_CODE_VIRT + ((uint64_t)entry & 0xFFULL); 
+    vmm_map_in(proc->page_table, USER_CODE_VIRT + 0x1000, entry_phys + 0x1000, PTE_PRESENT | PTE_USER);
+    uint64_t entry_virt = USER_CODE_VIRT + ((uint64_t)entry & 0xFFFULL); 
     uint64_t entry_page_virt = (uint64_t)entry & ~0xFFFULL;
 
-    vga_print("entry fn addr:  0x"); vga_print_hex((uint64_t)entry);      vga_print("\n");
-    vga_print("entry page virt:0x"); vga_print_hex(entry_page_virt);       vga_print("\n");
-    vga_print("entry_phys:     0x"); vga_print_hex(entry_phys);            vga_print("\n");
-    vga_print("entry_virt:     0x"); vga_print_hex(entry_virt);            vga_print("\n");
-    vga_print("user page_table:0x"); vga_print_hex(proc->page_table);      vga_print("\n");
+    vga_print("entry fn addr:  "); vga_print_hex((uint64_t)entry);      vga_print("\n");
+    vga_print("entry page virt:"); vga_print_hex(entry_page_virt);       vga_print("\n");
+    vga_print("entry_phys:     "); vga_print_hex(entry_phys);            vga_print("\n");
+    vga_print("entry_virt:     "); vga_print_hex(entry_virt);            vga_print("\n");
+    vga_print("user page_table:"); vga_print_hex(proc->page_table);      vga_print("\n");
 
     if (entry_phys == 0) {
         vga_print("ERROR: vmm_get_phys returned 0 — kernel fn not mapped\n");
         for(;;) asm volatile("hlt");
     }
-
-    vmm_map_in(proc->page_table, USER_CODE_VIRT, entry_phys,
-               PTE_PRESENT | PTE_USER);
 
     /* verify the mapping took effect */
     uint64_t verify_cur, verify_phys;
@@ -141,7 +140,7 @@ process_t *process_create_user(void (entry)(void)) {
     verify_phys = vmm_get_phys(USER_CODE_VIRT);
     vmm_switch_address_space(verify_cur);
 
-    vga_print("verify mapping: 0x"); vga_print_hex(verify_phys); vga_print("\n");
+    vga_print("verify mapping: "); vga_print_hex(verify_phys); vga_print("\n");
     if (verify_phys == 0) {
         vga_print("ERROR: mapping not installed in user PML4\n");
         for(;;) asm volatile("hlt");

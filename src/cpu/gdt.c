@@ -14,6 +14,8 @@ void tss_set_kernel_stack(uint64_t rsp0);
 2 - kernel data segment (ring 0, writable)
 3 - user code segment (ring 3, executable)
 4 - user data segment (ring 3, writable)
+5 TODO  - tss low  -- 32 bits so compact later 
+6 - tss high 
 */
 static gdt_entry_t gdt[7]; 
 static gdt_ptr_t gdt_ptr; 
@@ -64,6 +66,12 @@ void gdt_init(void) {
     gdt_set_entry(3, 0, 0xFFFFFFFF, 0xFA, 0xA0); 
     gdt_set_entry(4, 0, 0xFFFFFFFF, 0xF2, 0xC0);
     
+    uint8_t *p = (uint8_t *)&tss; 
+    for(size_t i = 0; i < sizeof(tss); i++) { 
+        p[i] = 0; 
+    }
+    tss.iopb_offset = sizeof(tss); 
+
     uint64_t tss_base = (uint64_t)&tss; 
     uint16_t tss_limit = sizeof(tss) - 1; 
 
@@ -74,17 +82,13 @@ void gdt_init(void) {
     td->type = 0x89;  /* present, ring 0, 64-bit TSS */
     td->limit_high_flags = (tss_limit >> 16) & 0x0F;
     td->base_high = (tss_base >> 24) & 0xFF;
-    td->base_upper= (tss_base >> 32) & 0xFFFFFFFF;
+    // td->base_upper= (tss_base >> 32) & 0xFFFFFFFF;
+    td->base_upper = (uint32_t)(tss_base >> 32); 
     td->reserved = 0;
 
-    uint8_t *p = (uint8_t *)&tss; 
-    for(size_t i = 0; i < sizeof(tss); i++) { 
-        p[i] = 0; 
-    }
-    tss.iopb_offset = sizeof(tss); 
 
     gdt_flush((uint64_t)&gdt_ptr); 
-    asm volatile("ltr %%ax" : : "a"((uint64_t)0x28)); 
+    asm volatile("ltr %%ax" : : "a"((uint16_t)0x28)); 
     syscall_init(); 
 
 }

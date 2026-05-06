@@ -103,8 +103,19 @@ static void page_fault_handler(registers_t *regs) {
     (void)regs;  
     uint64_t fault_addr; 
     asm volatile("mov %%cr2, %0" : "=r"(fault_addr)); 
-    vga_print("PAGE FAULT at addr=0x"); 
+    vga_print("PAGE FAULT at addr="); 
     vga_print_hex(fault_addr); 
+    vga_print(" err="); 
+    vga_print_hex(regs->err_code); 
+    vga_print("\n"); 
+    /*
+     * Error code bits:
+     *   bit 0 = 1: protection violation (page present, access denied)
+     *   bit 0 = 0: page not present
+     *   bit 1 = 1: write access
+     *   bit 2 = 1: user mode access
+     *   bit 4 = 1: instruction fetch
+     */
     for(;;) asm volatile("hlt"); 
 }   
 
