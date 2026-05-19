@@ -111,6 +111,9 @@ void scheduler_start(void) {
     next->state = PROCESS_RUNNING;
     current = next;
 
+    extern void set_gs_base(uint64_t base); 
+    set_gs_base((uint64_t)current); 
+
     if(next->page_table) { 
         tss_set_kernel_stack(next->kernel_stack); 
     }

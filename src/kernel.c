@@ -144,14 +144,11 @@ void kernel_main(void) {
     vga_print_int(PML4_INDEX(0x100C00)); // Should be 0
     vga_print("\n"); 
 
-    // process_t *a = process_create(process_A);
-    // process_t *b = process_create(process_B);
-    // process_t *c = process_create(process_C);
-    process_t *u = process_create_user(user_process); 
-    // scheduler_add(a);
-    // scheduler_add(b);
-    // scheduler_add(c);
-    scheduler_add(u); 
+    process_t *a = process_create(process_A); scheduler_add(a);
+    process_t *b = process_create(process_B); scheduler_add(b);
+    process_t *c = process_create(process_C); scheduler_add(c); 
+    process_t *u = process_create_user(user_process); scheduler_add(u); 
+    
 
     vga_print("Starting scheduler...\n");
     asm volatile("sti");

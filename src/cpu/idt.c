@@ -70,8 +70,8 @@ void isr_common_handler(registers_t *regs) {
             char c = nibble < 10 ? '0' + nibble : 'A' + nibble - 10;
             if (c != '0' || i == 0) vga_putchar(c); 
         }
-        vga_print("  err=0x");
-        n = regs->err_code;
+        vga_print("  err=");
+        vga_print_hex(regs->err_code); 
         vga_print("\n");
         for(;;) asm volatile("hlt");
     }
@@ -119,6 +119,28 @@ static void page_fault_handler(registers_t *regs) {
     for(;;) asm volatile("hlt"); 
 }   
 
+static void ud_handler(registers_t *regs) { 
+
+    vga_print("\n --- DEBUG DUMP --- \n"); 
+    uint64_t *stack = (uint64_t*)regs->rsp; 
+    for(int i = 0; i < 8; i++) { 
+        vga_print("Stack["); vga_print_hex(i); vga_print("]: ");
+        vga_print_hex(stack[i]);
+        vga_print("\n");
+    }
+
+    vga_print("\n[EXCEPTION] Invalid Opcode (#UD)!\n");
+    vga_print("RIP="); 
+    vga_print_hex(regs->rip);
+    vga_print("\nRAX="); 
+    vga_print_hex(regs->rax); 
+    vga_print("\nCS="); 
+    vga_print_hex(regs->cs); 
+    vga_print("\n"); 
+    
+    for(;;) asm volatile("hlt");
+}
+
 
 
 void idt_init(void) { 
@@ -130,6 +152,7 @@ void idt_init(void) {
     }
     asm volatile("lidt %0" : : "m"(idt_ptr)); 
     idt_register_handler(14, page_fault_handler); 
+    idt_register_handler(6, ud_handler); 
 }
 
 

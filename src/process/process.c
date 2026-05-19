@@ -20,6 +20,8 @@ extern void process_user_trampoline_fn(void);
 
 _Static_assert(offsetof(process_t, page_table) == 176,
                "update PROCESS_PAGE_TABLE in context.asm");
+_Static_assert(offsetof(process_t, context.rsp) == 8, "RSP offset mismatch");
+_Static_assert(sizeof(process_t) > 176, "Process struct is too small");
 
 /**
  * @brief Allocates and initialises a new process. 
@@ -42,6 +44,7 @@ process_t *process_create(void (entry)(void)) {
     proc->pid = next_pid++; 
     proc->state = PROCESS_READY; 
     proc->kernel_stack = (uint64_t)stack + KERNEL_STACK_SIZE; 
+    proc->page_table = 0; 
     proc->next = NULL; 
 
 
@@ -51,12 +54,9 @@ process_t *process_create(void (entry)(void)) {
 
     uint64_t *sp = (uint64_t *)(stack + KERNEL_STACK_SIZE); 
     
-    sp--; 
-    *sp = (uint64_t)entry; 
+    sp--; *sp = (uint64_t)entry; 
 
-    sp--; 
-    *sp = (uint64_t)process_trampoline_fn; 
-
+    sp--; *sp = (uint64_t)process_trampoline_fn; 
 
     proc->context.rsp = (uint64_t)sp; 
 
@@ -156,12 +156,15 @@ process_t *process_create_user(void (entry)(void)) {
     build the frame. 
     */
     uint64_t *sp = (uint64_t *)(kstack + KERNEL_STACK_SIZE); 
-
+    // sp--; *sp = 0; // padding 
     sp--; *sp = proc->user_stack;
     sp--; *sp = entry_virt; 
     sp--; *sp = (uint64_t)process_user_trampoline_fn; 
 
     proc->context.rsp = (uint64_t)sp; 
+    vga_print("proc->context.rsp="); 
+    vga_print_hex(proc->context.rsp); 
+    vga_print("\n"); 
     return proc; 
 }
 

@@ -25,8 +25,10 @@ process_trampoline_fn:
 
 process_user_trampoline_fn: 
     ; ACK PIC first so timer keeps going 
+    push rax
     xor edi, edi 
     call pic_send_eoi
+    pop rax
 
     ; pop RIP and RSP that the process_create_user pushed 
     pop rcx
