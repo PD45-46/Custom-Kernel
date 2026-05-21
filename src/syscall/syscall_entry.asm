@@ -59,7 +59,7 @@ syscall_entry:
     pop rcx
 
     mov rsp, [user_rsp_tmp] 
-    sysretq      ; restores RFLAGS from R11 — user had IF=1, so interrupts re-enable here
+    db 0x48, 0x0F, 0x07     ; sysretq — 48=REX.W, 0F 07=SYSRET opcode
 
 section .data 
 user_rsp_tmp: dq 0 

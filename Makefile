@@ -68,6 +68,12 @@ debug: $(ISO)
 		-serial stdio -no-reboot -no-shutdown \
 		-s -S &
 	gdb $(KERNEL) \
+		-ex "set logging file gdb.log" \
+		-ex "set logging overwrite off" \
+		-ex "set logging enabled on" \
+		-ex "set pagination off" \
+		-ex "set disassemble-next-line on" \
+		-ex "layout asm"\
 		-ex "target remote :1234" \
 		-ex "break kernel_main" \
 		-ex "continue"

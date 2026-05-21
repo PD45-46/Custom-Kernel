@@ -63,8 +63,8 @@ void gdt_init(void) {
     gdt_set_entry(0, 0, 0, 0x00, 0x00); 
     gdt_set_entry(1, 0, 0xFFFFFFFF, 0x9A, 0xA0); 
     gdt_set_entry(2, 0, 0xFFFFFFFF, 0x92, 0xC0); 
-    gdt_set_entry(3, 0, 0xFFFFFFFF, 0xFA, 0xA0); 
-    gdt_set_entry(4, 0, 0xFFFFFFFF, 0xF2, 0xC0);
+    gdt_set_entry(3, 0, 0xFFFFFFFF, 0xF2, 0xC0); 
+    gdt_set_entry(4, 0, 0xFFFFFFFF, 0xFA, 0xA0);
     
     uint8_t *p = (uint8_t *)&tss; 
     for(size_t i = 0; i < sizeof(tss); i++) { 
@@ -136,7 +136,7 @@ void syscall_init(void) {
     wrmsr(MSR_LSTAR, (uint64_t)syscall_entry); 
     
     /* As explained in the STAR LAYOUT */
-    wrmsr(MSR_STAR, ((uint64_t)0x18 << 48) | ((uint64_t)0x08 << 32)); 
+    wrmsr(MSR_STAR, ((uint64_t)0x10 << 48) | ((uint64_t)0x08 << 32)); 
 
     wrmsr(MSR_SFMASK, 0x200); 
 

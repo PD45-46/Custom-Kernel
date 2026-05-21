@@ -109,6 +109,7 @@ void user_process(void) {
             "syscall\n"
             : : : "rax", "rcx", "r11"
         ); 
+        asm volatile("hlt"); 
    }
 }
 
@@ -144,9 +145,9 @@ void kernel_main(void) {
     vga_print_int(PML4_INDEX(0x100C00)); // Should be 0
     vga_print("\n"); 
 
-    process_t *a = process_create(process_A); scheduler_add(a);
-    process_t *b = process_create(process_B); scheduler_add(b);
-    process_t *c = process_create(process_C); scheduler_add(c); 
+    // process_t *a = process_create(process_A); scheduler_add(a);
+    // process_t *b = process_create(process_B); scheduler_add(b);
+    // process_t *c = process_create(process_C); scheduler_add(c); 
     process_t *u = process_create_user(user_process); scheduler_add(u); 
     
 

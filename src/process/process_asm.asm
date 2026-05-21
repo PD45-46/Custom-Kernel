@@ -25,20 +25,18 @@ process_trampoline_fn:
 
 process_user_trampoline_fn: 
     ; ACK PIC first so timer keeps going 
-    push rax
     xor edi, edi 
     call pic_send_eoi
-    pop rax
 
     ; pop RIP and RSP that the process_create_user pushed 
     pop rcx
     pop rdx
 
     ; build iretq frame on current kernel stack 
-    push 0x23
+    push 0x1B
     push rdx
     push 0x202
-    push 0x1B 
+    push 0x23 
     push rcx
 
     ; zero gen purp registers before entering user space 
