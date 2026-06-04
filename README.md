@@ -10,5 +10,21 @@ There are 256 possible entries. 0-31 are CPU exceptions, 32-47 are hardware inte
 
 Each entry of the table must point to an assembly stub because the CPU pushes specific things onto the stack when an interrupt fires and expects a specific ```iretq``` call after the interrupt. An example of an assembly stub is just a small ```.asm``` file containing a small set of instructions; the goal is to not write the entire system is assembly. 
 
+### ROADMAP 
+- Complete user space 
+    - SYS_READ: blocking keyboard input to a user buffer. User process calls, kernel blocks the process until the key arrives, wakes the process and returns the char. 
+    - SYS_SLEEP: yield for ```n``` ticks. Kernel sets a wake-up tick and then sets it as PROCESS_BLOCKED until time to start again. 
+    - PROCESS_BLOCKED: ... 
+    - SYS_SBRK: lets the user process call malloc. Implement sbrk as a syscall that bumps a per-process heap pointer and maps new pages. Then a minimal malloc/free in ulib builds on top of it. 
+- Graphics 
+    - Consider VESA/VBE for better colours/resolution. 
+    - Double buffering: user process draws to a back buffer in its own memory, then syscall to blit it to the real framebuffer. Supposedly prevents tearing issues. 
+- Storage and filesystem 
+    - If i want to run and load games, i will need a file system. 
+- ELF loader 
+- Load up DOOM from doomgeneric and map all ports and elements.  
 
-
+### BUGS TO ADDRESS 
+> When you init the process scheduler with just a user process, the scheduler will bug out after the first print. The same doesn't happen when I start with a kernel process and append a user process after in the scheduler. 
+ 
+> Hello
