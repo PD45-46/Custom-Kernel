@@ -11,6 +11,7 @@
 #include "memory/heap.h"
 #include "process/scheduler.h"
 #include "process/process.h"
+#include "user/user_lib.h"
 #include <stdlib.h> 
 
 
@@ -91,26 +92,14 @@ void process_C(void) {
  */
 void user_process(void) { 
     char msg[5]; 
-    msg[0]='R'; msg[1]='3'; msg[2]='!'; msg[3]='\n'; msg[4]='\0';
+    msg[0]='R'; msg[1]='3'; msg[2]='!'; msg[3]=' '; msg[4]='\0';
 
     while(1) { 
-        asm volatile(
-            "mov $0, %%rax\n"
-            "syscall\n"
-            : : "D"((uint64_t)msg), "S"((uint64_t)4)
-            : "rax","rcx","r11","memory"
-        );
+        u_write(msg, 3); 
 
         /* All caller-saved regs in clobber list — compiler must use
            a callee-saved reg (rbx/r12-r15) for i, which syscall_entry preserves */
-        int i = 50;
-        while (i-- > 0) {
-            asm volatile(
-                "mov $2, %%rax\n"
-                "syscall\n"
-                : : : "rax","rcx","rdx","rsi","rdi","r8","r9","r10","r11"
-            );
-        }
+        u_yield(); 
     }
 }
 
