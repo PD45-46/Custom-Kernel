@@ -61,8 +61,12 @@ void process_A(void) {
 }
 
 void process_B(void) { 
+    uint64_t tick = 0; 
     while(1) { 
-        vga_print("B "); 
+        tick++; 
+        if(tick % 18 == 0) { 
+            vga_print("B"); 
+        }
         asm volatile("hlt"); 
     }
 
@@ -87,30 +91,27 @@ void process_C(void) {
  */
 void user_process(void) { 
     char msg[5]; 
-    msg[0] = 'R'; 
-    msg[1] = '3'; 
-    msg[2] = '!'; 
-    msg[3] = '\n'; 
-    msg[4] = '\0'; 
-    while(1) { 
-        uint64_t ptr = (uint64_t)msg; 
-        uint64_t len = sizeof(msg) - 1; 
+    msg[0]='R'; msg[1]='3'; msg[2]='!'; msg[3]='\n'; msg[4]='\0';
 
-        /* SYS_WRITE */
-        asm volatile( 
+    while(1) { 
+        asm volatile(
             "mov $0, %%rax\n"
             "syscall\n"
-            : : "D"(ptr), "S"(len)
-            : "rax", "rcx", "r11", "memory"
-        ); 
-        /* SYS_YIELD */
-        asm volatile(
-            "mov $2, %%rax\n"
-            "syscall\n"
-            : : : "rax", "rcx", "r11"
-        ); 
-        asm volatile("hlt"); 
-   }
+            : : "D"((uint64_t)msg), "S"((uint64_t)4)
+            : "rax","rcx","r11","memory"
+        );
+
+        /* All caller-saved regs in clobber list — compiler must use
+           a callee-saved reg (rbx/r12-r15) for i, which syscall_entry preserves */
+        int i = 50;
+        while (i-- > 0) {
+            asm volatile(
+                "mov $2, %%rax\n"
+                "syscall\n"
+                : : : "rax","rcx","rdx","rsi","rdi","r8","r9","r10","r11"
+            );
+        }
+    }
 }
 
 
@@ -145,8 +146,8 @@ void kernel_main(void) {
     vga_print_int(PML4_INDEX(0x100C00)); // Should be 0
     vga_print("\n"); 
 
-    // process_t *a = process_create(process_A); scheduler_add(a);
-    // process_t *b = process_create(process_B); scheduler_add(b);
+    process_t *a = process_create(process_A); scheduler_add(a);
+    // process_t *b = process_create(process_B); scheduler_add(b);  
     // process_t *c = process_create(process_C); scheduler_add(c); 
     process_t *u = process_create_user(user_process); scheduler_add(u); 
     

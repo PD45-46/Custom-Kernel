@@ -26,7 +26,7 @@ static tss_t tss;
  * @brief Fills one GDT slot. 
  * @param i which of the gdt's to select 
  * @param base
- * @param limit
+ * @param limit 
  * @param access 
  * @param gran 
  * 

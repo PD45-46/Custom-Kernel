@@ -29,7 +29,7 @@ Task State Segment
 Ony need the rsp0 register to find the 
 kernel stack pointer. 
 */
-typedef struct __attribute((packed)) {
+typedef struct __attribute__((packed)) {
     uint32_t reserved0;
     uint64_t rsp0;        /* kernel stack pointer for ring 0 */
     uint64_t rsp1;
