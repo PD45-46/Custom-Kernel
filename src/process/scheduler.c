@@ -24,7 +24,7 @@ extern void context_switch(process_t *current, process_t *next);
  * 
  */
 static void idle_fn(void) { 
-    for(;;) asm volatile("hlt"); 
+    for(;;) asm volatile("sti\n\thlt"); 
 }
 
 
