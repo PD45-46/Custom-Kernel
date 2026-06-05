@@ -32,3 +32,23 @@ void u_exit(void) {
         : : : "rax","rcx","r11"
     );
 }
+
+void u_sleep(uint64_t ticks) { 
+    asm volatile(
+        "mov $4, %%rax\n syscall\n"
+        : 
+        : "D"(ticks)
+        : "rax", "rcx", "r11", "memory"
+    );
+}
+
+uint64_t u_read(char *buf, uint64_t len) { 
+    int64_t ret;
+    asm volatile(
+        "mov $5, %%rax\n syscall\n"
+        : "=a"(ret)
+        : "D"((uint64_t)buf), "S"(len)
+        : "rcx", "r11", "memory"
+    );
+    return ret;
+}

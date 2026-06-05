@@ -103,6 +103,16 @@ void user_process(void) {
     }
 }
 
+void user_process_A(void) { 
+    char buf[64]; 
+    char p[] = {'>', ' ', 0}; 
+    u_write(p, 2); 
+    int64_t n = u_read(buf, sizeof(buf) - 1); 
+    buf[n] = 0; 
+    u_write(buf, n); 
+    u_exit(); 
+}
+
 
 void kernel_main(void) { 
     serial_init();
@@ -139,6 +149,7 @@ void kernel_main(void) {
     // process_t *b = process_create(process_B); scheduler_add(b);  
     // process_t *c = process_create(process_C); scheduler_add(c); 
     process_t *u = process_create_user(user_process); scheduler_add(u); 
+    // process_t *u_a = process_create_user(user_process_A); scheduler_add(u_a); 
     
 
     vga_print("Starting scheduler...\n");

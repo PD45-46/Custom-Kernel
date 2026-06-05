@@ -79,16 +79,32 @@ process_t *scheduler_current(void) {
  */
 void scheduler_tick(void) { 
     if(!current || !current->next) return; 
+
+    uint64_t now = timer_ticks(); 
+    process_t *p = idle->next; 
+    while(p != idle) { 
+        if(p->state == PROCESS_BLOCKED && 
+           p->wait_reason == WAIT_SLEEP && 
+           now >= p->wake_tick) { 
+
+            p->state = PROCESS_READY; 
+            p->wait_reason = WAIT_NONE; 
+        }
+        p = p->next; 
+    }
+
+
     process_t *curr = current; 
     process_t *next = current->next; 
 
-    while(next->state == PROCESS_DEAD && next != curr) { 
+    while((next->state == PROCESS_DEAD || next->state == PROCESS_BLOCKED) && next != curr) { 
         next = next->next; 
     }
 
     if(next == curr) return; 
-
-    curr->state = PROCESS_READY; 
+    if(curr->state == PROCESS_RUNNING) { 
+        curr->state = PROCESS_READY; 
+    }
     next->state = PROCESS_RUNNING; 
     current = next; 
 
@@ -102,6 +118,18 @@ void scheduler_tick(void) {
     }
 
     context_switch(curr, next); 
+}
+
+void scheduler_wake_key_waiter(void) { 
+    process_t *p = idle->next; 
+    while(p != idle) { 
+        if(p->state == PROCESS_BLOCKED && p->wait_reason == WAIT_KEY) { 
+            p->state = PROCESS_READY; 
+            p->wait_reason = WAIT_NONE; 
+            return; 
+        }
+        p = p->next; 
+    }
 }
 
 void scheduler_start(void) {

@@ -18,13 +18,21 @@ typedef struct {
     uint64_t cr3;
 } cpu_state_t; 
 
+typedef enum { 
+    WAIT_NONE = 0, 
+    WAIT_SLEEP, 
+    WAIT_KEY
+} wait_reason_t; 
+
 typedef struct process { 
     uint32_t pid; 
     process_state_t state; 
     cpu_state_t context; 
     uint64_t kernel_stack; 
     uint64_t user_stack; 
-    uint64_t page_table; 
+    uint64_t page_table;
+    uint64_t wake_tick;         // tick to wake at 
+    wait_reason_t wait_reason;  // reason for wait 
     struct process *next; 
 } process_t; 
 

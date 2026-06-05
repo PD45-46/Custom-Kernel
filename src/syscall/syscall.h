@@ -25,6 +25,9 @@ Syscall Convention:
 #define SYS_EXIT  1
 #define SYS_YIELD 2
 #define SYSGETPID 3
+#define SYS_SLEEP 4
+#define SYS_READ  5 
+
 
 
 
