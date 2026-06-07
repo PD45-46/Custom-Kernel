@@ -1,8 +1,10 @@
 #include "gdt.h"
 #include <stdint.h> 
+#include <stddef.h> 
 
 void gdt_init(void); 
 void syscall_init(void); 
+void tss_set_kernel_stack(uint64_t rsp0); 
 
 
 /*
@@ -12,15 +14,19 @@ void syscall_init(void);
 2 - kernel data segment (ring 0, writable)
 3 - user code segment (ring 3, executable)
 4 - user data segment (ring 3, writable)
+5 TODO  - tss low  -- 32 bits so compact later 
+6 - tss high 
 */
-static gdt_entry_t gdt[6]; 
+static gdt_entry_t gdt[7]; 
 static gdt_ptr_t gdt_ptr; 
+
+static tss_t tss; 
 
 /** 
  * @brief Fills one GDT slot. 
  * @param i which of the gdt's to select 
  * @param base
- * @param limit
+ * @param limit 
  * @param access 
  * @param gran 
  * 
@@ -51,16 +57,38 @@ static void gdt_set_entry(
 extern void gdt_flush(uint64_t gdt_ptr); 
 
 void gdt_init(void) { 
-    gdt_ptr.limit = (sizeof(gdt_entry_t) * 6) - 1; 
+    gdt_ptr.limit = (sizeof(gdt_entry_t) * 7) - 1; 
     gdt_ptr.base = (uint64_t)&gdt; 
 
     gdt_set_entry(0, 0, 0, 0x00, 0x00); 
     gdt_set_entry(1, 0, 0xFFFFFFFF, 0x9A, 0xA0); 
     gdt_set_entry(2, 0, 0xFFFFFFFF, 0x92, 0xC0); 
-    gdt_set_entry(3, 0, 0xFFFFFFFF, 0xFA, 0xA0); 
-    gdt_set_entry(4, 0, 0xFFFFFFFF, 0xF2, 0xC0);
+    gdt_set_entry(3, 0, 0xFFFFFFFF, 0xF2, 0xC0); 
+    gdt_set_entry(4, 0, 0xFFFFFFFF, 0xFA, 0xA0);
     
+    uint8_t *p = (uint8_t *)&tss; 
+    for(size_t i = 0; i < sizeof(tss); i++) { 
+        p[i] = 0; 
+    }
+    tss.iopb_offset = sizeof(tss); 
+
+    uint64_t tss_base = (uint64_t)&tss; 
+    uint16_t tss_limit = sizeof(tss) - 1; 
+
+    tss_descriptor_t *td = (tss_descriptor_t *)&gdt[5];
+    td->limit_low = tss_limit & 0xFFFF;
+    td->base_low = tss_base & 0xFFFF;
+    td->base_mid = (tss_base >> 16) & 0xFF;
+    td->type = 0x89;  /* present, ring 0, 64-bit TSS */
+    td->limit_high_flags = (tss_limit >> 16) & 0x0F;
+    td->base_high = (tss_base >> 24) & 0xFF;
+    // td->base_upper= (tss_base >> 32) & 0xFFFFFFFF;
+    td->base_upper = (uint32_t)(tss_base >> 32); 
+    td->reserved = 0;
+
+
     gdt_flush((uint64_t)&gdt_ptr); 
+    asm volatile("ltr %%ax" : : "a"((uint16_t)0x28)); 
     syscall_init(); 
 
 }
@@ -108,7 +136,7 @@ void syscall_init(void) {
     wrmsr(MSR_LSTAR, (uint64_t)syscall_entry); 
     
     /* As explained in the STAR LAYOUT */
-    wrmsr(MSR_STAR, ((uint64_t)0x18 << 48) | ((uint64_t)0x08 << 32)); 
+    wrmsr(MSR_STAR, ((uint64_t)0x10 << 48) | ((uint64_t)0x08 << 32)); 
 
     wrmsr(MSR_SFMASK, 0x200); 
 
@@ -124,6 +152,14 @@ void syscall_init(void) {
     asm volatile("wrmsr" : : "c"(MSR_EFER), "a"(low), "d"(high)); 
 }
 
+
+/**
+ * @brief 
+ * 
+ */
+void tss_set_kernel_stack(uint64_t rsp0) { 
+    tss.rsp0 = rsp0; 
+}
 
 
 

@@ -22,21 +22,9 @@ extern syscall_dispatch
 extern kernel_stack_top 
 
 syscall_entry: 
-
-    ; Switch to kernel stack
-    ; Can't push RSP on itself safely here. Use the swapgs 
-    ; trick or a per-CPU temp variable. For now, use a global 
-    ; (single CPU, no userspace yet). 
-
-    mov[user_rsp_tmp], rsp 
+    mov [user_rsp_tmp], rsp 
     mov rsp, [kernel_stack_top]
-
-    ; Re-enable interrupts 
-    ; They were initially disabled via SFMASK on entry. 
-
-    sti 
-
-    ; Save user registers 
+    ; NO sti — keep interrupts disabled throughout
 
     push rcx 
     push r11 
@@ -46,39 +34,20 @@ syscall_entry:
     push r13 
     push r14 
     push r15 
-
-    push qword [user_rsp_tmp] 
-
-
-    ; Call C dispatcher 
-    ; Arguments already in correct registers 
-    ;   RDI = arg1, RSI = arg2, RDX = arg3, R10 = arg4
-    ; 
-    ; Syscall number is in RAX, pass it to the first argument 
-    ; by moving it to RDI and shifting the rest. 
-    ; 
-    ; syscall_dispatch(number, arg1, arg2, arg3)
-    ; = syscall_dispatch(rax, rdi, rsi, rdx) 
+    push qword [user_rsp_tmp]
 
     push rdi 
     push rsi 
     push rdx
-
     mov rcx, rdx
     mov rdx, rsi 
     mov rsi, rdi 
     mov rdi, rax
-
     pop rax
     pop rax
     pop rax
+    call syscall_dispatch    ; IF=0 throughout — context_switch is safe
 
-    call syscall_dispatch
-
-    ; RAX now holds the return value from syscall_dispatch 
-    ; leave it in RAX, sysret will return it to user space
-
-    ; Restore registers 
     pop qword [user_rsp_tmp]  
     pop r15
     pop r14
@@ -89,19 +58,9 @@ syscall_entry:
     pop r11
     pop rcx
 
-    ; Restore user stack 
     mov rsp, [user_rsp_tmp] 
-
-    ; return to user space 
-    ; sysretq restores RIP from RCX, RFLAGS from R11,
-    ; switches CS back to user code selector.
-    ; Must disable interrupts before sysret. 
-    ; Interrupts are re-enabled as part of RFLAGS restore.
-
-    cli 
-    sysretq 
+    db 0x48, 0x0F, 0x07     ; sysretq — 48=REX.W, 0F 07=SYSRET opcode
 
 section .data 
 user_rsp_tmp: dq 0 
-
 section .note.GNU-stack noalloc noexec nowrite progbits

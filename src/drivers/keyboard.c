@@ -2,6 +2,12 @@
 #include "pic.h"
 #include "../cpu/idt.h"
 #include "../drivers/vga.h"
+#include "../process/scheduler.h"
+
+#define KB_BUFFER_SIZE 64 
+static char kb_buf[KB_BUFFER_SIZE];
+static int kb_read_pos = 0; 
+static int kb_write_pos = 0;
 
 static char last_key = 0; 
 
@@ -32,8 +38,15 @@ static void keyboard_handler(registers_t *regs) {
     if(scancode < 128) { 
         char c = scancode_table[scancode]; 
         if(c) { 
-            last_key = c; 
+            // last_key = c; 
+            // vga_putchar(c); 
+            int next = (kb_write_pos + 1) % KB_BUFFER_SIZE; 
+            if(next != kb_read_pos) { /* Drop if full */
+                kb_buf[kb_write_pos] = c; 
+                kb_write_pos = next;  
+            }
             vga_putchar(c); 
+            scheduler_wake_key_waiter(); 
         }
     }
     pic_send_eoi(1);  // IRQ  1 
@@ -44,14 +57,19 @@ void keyboard_init(void) {
     pic_unmask(1); 
 }
 
+int keyboard_has_char(void) { 
+    return kb_read_pos != kb_write_pos; 
+}
+
 /**
  * @brief Gets and resets the last key used. 
  * 
  * @return char Last key. 
  */
 char keyboard_getchar(void) { 
-    char c = last_key; 
-    last_key = 0; 
+    if(kb_read_pos == kb_write_pos) return 0; 
+    char c = kb_buf[kb_read_pos]; 
+    kb_read_pos = (kb_read_pos + 1) % KB_BUFFER_SIZE; 
     return c; 
 }
 

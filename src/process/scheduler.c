@@ -1,6 +1,7 @@
 #include "scheduler.h"
 #include "process.h"
 #include "../drivers/vga.h"
+#include "../cpu/gdt.h"
 #include <stdint.h> 
 #include <stddef.h> 
 
@@ -23,7 +24,7 @@ extern void context_switch(process_t *current, process_t *next);
  * 
  */
 static void idle_fn(void) { 
-    for(;;) asm volatile("hlt"); 
+    for(;;) asm volatile("sti\n\thlt"); 
 }
 
 
@@ -78,20 +79,57 @@ process_t *scheduler_current(void) {
  */
 void scheduler_tick(void) { 
     if(!current || !current->next) return; 
+
+    uint64_t now = timer_ticks(); 
+    process_t *p = idle->next; 
+    while(p != idle) { 
+        if(p->state == PROCESS_BLOCKED && 
+           p->wait_reason == WAIT_SLEEP && 
+           now >= p->wake_tick) { 
+
+            p->state = PROCESS_READY; 
+            p->wait_reason = WAIT_NONE; 
+        }
+        p = p->next; 
+    }
+
+
     process_t *curr = current; 
     process_t *next = current->next; 
 
-    while(next->state == PROCESS_DEAD && next != curr) { 
+    while((next->state == PROCESS_DEAD || next->state == PROCESS_BLOCKED) && next != curr) { 
         next = next->next; 
     }
 
     if(next == curr) return; 
-
-    curr->state = PROCESS_READY; 
+    if(curr->state == PROCESS_RUNNING) { 
+        curr->state = PROCESS_READY; 
+    }
     next->state = PROCESS_RUNNING; 
     current = next; 
 
+    /* 
+    If next is user process (has its own page table), 
+    update TSS.RSP0 to hardware interrupts from ring 3 
+    switch to the correct kernel stack.  
+    */
+    if(next->page_table) { 
+            tss_set_kernel_stack(next->kernel_stack); 
+    }
+
     context_switch(curr, next); 
+}
+
+void scheduler_wake_key_waiter(void) { 
+    process_t *p = idle->next; 
+    while(p != idle) { 
+        if(p->state == PROCESS_BLOCKED && p->wait_reason == WAIT_KEY) { 
+            p->state = PROCESS_READY; 
+            p->wait_reason = WAIT_NONE; 
+            return; 
+        }
+        p = p->next; 
+    }
 }
 
 void scheduler_start(void) {
@@ -100,6 +138,13 @@ void scheduler_start(void) {
     process_t *next = current->next;
     next->state = PROCESS_RUNNING;
     current = next;
+
+    extern void set_gs_base(uint64_t base); // <=== To remove (soon)
+    // set_gs_base((uint64_t)current); 
+
+    if(next->page_table) { 
+        tss_set_kernel_stack(next->kernel_stack); 
+    }
 
     context_switch(&boot_context, next);
 }

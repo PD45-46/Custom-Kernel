@@ -6,27 +6,23 @@
 global context_switch 
 
 %define PROCESS_CONTEXT_RSP 8
+%define PROCESS_PAGE_TABLE 176 ; Offset of page table in process_t 
 
 context_switch: 
 
-    ; Save current process 
-    ; Still on the current process's stack. Only need to save rsp because 
-    ; all other registers were already pushed onto the stack by the IRQ stub 
-    ; in isr.asm before this function was called.
-
+    ; save current stack pointer 
     mov [rdi + PROCESS_CONTEXT_RSP], rsp 
 
-    ; Load next process
-    ; Switching to the next process's stack by loading in its saved RSP. 
-    ; After this instruction we're working on a completely different stack 
-    ; --- the one that belongs to the next process. 
+    ; swap address space if next process has its own page table 
+    mov rax, [rsi + PROCESS_PAGE_TABLE] 
+    test rax, rax 
+    jz .no_cr3_swap 
+    mov cr3, rax
 
+.no_cr3_swap: 
+
+    ; load next process stack pointer 
     mov rsp, [rsi + PROCESS_CONTEXT_RSP] 
-
-    ; Pop RIP off the new stack and jumps there. 
-    ; For a process that is new: jumps to the 'trampoline' in process_create 
-    ; For pre-existing process: resumes where it was left off. 
-
-    ret
+    ret 
 
 section .note.GNU-stack noalloc noexec nowrite progbits

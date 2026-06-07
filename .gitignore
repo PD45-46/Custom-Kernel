@@ -27,11 +27,11 @@ bin/
 obj/
 out/
 
-# CMake files
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-Makefile
+# # CMake files
+# CMakeCache.txt
+# CMakeFiles/
+# cmake_install.cmake
+# Makefile
 
 # Autotools
 aclocal.m4

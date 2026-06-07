@@ -2,6 +2,8 @@
 #include "../drivers/vga.h"
 #include "../process/scheduler.h"
 #include "../process/process.h" 
+#include "../drivers/keyboard.h"
+#include "../drivers/timer.h"
 #include <stdint.h> 
 
 
@@ -69,6 +71,46 @@ static int64_t sys_yield(void) {
 }
 
 /**
+ * @brief 
+ * 
+ * @param ticks 
+ * @return int64_t 0 on correct system procedure 
+ */
+static int64_t sys_sleep(uint64_t ticks) { 
+    process_t *curr = scheduler_current(); 
+    if(!curr) return -1; 
+    curr->wake_tick = timer_ticks() + ticks; 
+    curr->wait_reason = WAIT_SLEEP;
+    curr->state = PROCESS_BLOCKED; 
+    scheduler_tick();  
+    return 0; 
+}
+
+/**
+ * @brief 
+ * 
+ * @param buf_ptr 
+ * @param len 
+ * @return int64_t 
+ */
+static int64_t sys_read(uint64_t buf_ptr , uint64_t len) { 
+    char *buf = (char *)buf_ptr; 
+    if(!buf || len == 0) return -1; 
+    for(uint64_t i = 0; i < len; i++) { 
+        while(!keyboard_has_char()) { 
+            process_t *curr = scheduler_current(); 
+            curr->wait_reason = WAIT_KEY; 
+            curr->state = PROCESS_BLOCKED; 
+            scheduler_tick(); 
+        }
+        char c = keyboard_getchar(); 
+        buf[i] = c; 
+        if(c =='\n') return (int64_t)(i + 1); 
+    }
+    return (int64_t)len; 
+} 
+
+/**
  * @brief Gets the current process ID. 
  * 
  * @return uint64_t ID or -1 on error. 
@@ -96,6 +138,8 @@ int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t ar
         case SYS_EXIT:  return sys_exit(arg1); 
         case SYS_YIELD: return sys_yield(); 
         case SYSGETPID: return sys_getpid(); 
+        case SYS_SLEEP: return sys_sleep(arg1); 
+        case SYS_READ:  return sys_read(arg1, arg2); 
         default: 
             /* Serials... */
             return -1; 

@@ -7,65 +7,9 @@
 
 /* TODO CLEAN UP COMMENTS... */
 
+// uint64_t *kernel_pml4; 
 
-/* 
-Page Table Bitmap 
 
-63                              12 11            0
-+--------------------------------+---------------+
-|   Physical Address (bits 51-12) |   Flags       |
-+--------------------------------+---------------+
-
-Bit(s)   Meaning
-----------------------------------------
-0        Present (P)
-1        Writable (R/W)
-2        User (U/S)
-3        Write-through
-4        Cache disable                                      -- Unhandled!
-5        Accessed                                           -- Unhandled!
-6        Dirty (only in PT level)                           -- Unhandled!
-7        Huge page (in PD/PT levels)
-8        Global
-9–11     Available for OS (I can use these!!!!)
-12–51    Physical address (aligned to 4KB)
-52–62    Available / reserved (depends on CPU)
-63       NX (No Execute) (if supported)                     -- Unhandled!
-*/
-
-/* 
-Page table flags. 
-The flag bits remain in the bottom 12 bits of each 
-page table entry. 
-*/
-
-#define PTE_PRESENT (1ULL << 0)   /* page is in memory */
-#define PTE_WRITABLE (1ULL << 1)   /* page can be written */
-#define PTE_USER (1ULL << 2)   /* accessible from ring 3 */
-#define PTE_HUGE (1ULL << 7)   /* 2MB page instead of 4KB */
-
-/*
-x86_64 uses 4-level paging: PML4 -> PDPT -> PD -> PT 
-Each page level is a page (KB) containing 512 8-byte entries. 
-A virtual address breaks down as: 
-    bits 49-39: PML4 (Page Map Level 4)             index  
-    bits 38-30: PDPT (Page Directory Pointer Table) index
-    bits 29-21: PD   (Page Directory)               index
-    bits 20-12: PT   (Page Table)                   index
-    bits 11-0: page offset
-*/
-
-#define PML4_INDEX(addr) (((addr) >> 39) & 0x1FF)
-#define PDPT_INDEX(addr) (((addr) >> 30) & 0x1FF)
-#define PD_INDEX(addr) (((addr) >> 21) & 0x1FF)
-#define PT_INDEX(addr) (((addr) >> 12) & 0x1FF)
-
-#define NUM_PAGE_LEVEL_ENTRIES 512 
-
-// mask to strip flags and get physical address from entry. 
-#define ENTRY_ADDR(entry) ((entry) & ~0xFFFULL)
-
-uint64_t *kernel_pml4; 
 
 /**
  * @brief Given a page table entry, get or create the next-level 
@@ -80,7 +24,7 @@ static uint64_t *get_or_create_table(uint64_t *entry, uint64_t flags) {
         void *frame = pmm_alloc(); 
 
         if(!frame) { 
-            vga_print("[VMM] pmm_alloc failed in get_or_create-table\n"); 
+            vga_print("[VMM] pmm_alloc failed in get_or_create_table\n"); 
             for(;;) asm volatile("hlt"); 
         }
 
@@ -88,7 +32,22 @@ static uint64_t *get_or_create_table(uint64_t *entry, uint64_t flags) {
         for(int i = 0; i < NUM_PAGE_LEVEL_ENTRIES; i++) { 
             table[i] = 0; 
         }
-        *entry = (uint64_t)frame | flags | PTE_PRESENT; 
+        *entry = (uint64_t)frame | flags | PTE_PRESENT;
+        // *entry = (uint64_t)frame | PTE_PRESENT | PTE_WRITABLE | PTE_USER;
+    } else { 
+        if(*entry & PTE_HUGE) { 
+            vga_print("[VMM] FATAL: Tried to traverse a huge page\n"); 
+            for(;;) asm volatile("hlt"); 
+        }
+        if(flags & PTE_USER) { 
+            *entry |= PTE_USER; 
+        }
+        if(flags & PTE_WRITABLE) { 
+            *entry |= PTE_WRITABLE;
+        }
+        if(flags & PTE_PRESENT) { 
+            *entry |= PTE_PRESENT; 
+        }
     }
     return (uint64_t *)ENTRY_ADDR(*entry); 
 }
@@ -103,11 +62,11 @@ static uint64_t *get_or_create_table(uint64_t *entry, uint64_t flags) {
  * @param flags PTE_WRITABLE, PTE_USER, etc.  
  */
 void vmm_map(uint64_t virt, uint64_t phys, uint64_t flags) { 
-    // uint64_t pml4_phys; 
-    // asm volatile("mov %%cr3, %0" : "=r"(pml4_phys)); 
-    // uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(pml4_phys);
+    uint64_t cur_cr3; 
+    asm volatile("mov %%cr3, %0" : "=r"(cur_cr3)); 
+    uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(cur_cr3); 
 
-    uint64_t *pdpt = get_or_create_table(&kernel_pml4[PML4_INDEX(virt)], PTE_WRITABLE | PTE_USER);
+    uint64_t *pdpt = get_or_create_table(&pml4[PML4_INDEX(virt)], PTE_WRITABLE | PTE_USER);
     uint64_t *pd = get_or_create_table(&pdpt[PDPT_INDEX(virt)], PTE_WRITABLE | PTE_USER); 
     uint64_t *pt = get_or_create_table(&pd[PD_INDEX(virt)], PTE_WRITABLE | PTE_USER);
     pt[PT_INDEX(virt)] = phys | flags | PTE_PRESENT; 
@@ -123,11 +82,11 @@ void vmm_map(uint64_t virt, uint64_t phys, uint64_t flags) {
  * @param virt virtual address
  */
 void vmm_unmap(uint64_t virt) { 
-    // uint64_t pml4_phys; 
-    // asm volatile("mov %%cr3, %0" : "=r"(pml4_phys));
-    // uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(pml4_phys); 
+    uint64_t cur_cr3; 
+    asm volatile("mov %%cr3, %0" : "=r"(cur_cr3));
+    uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(cur_cr3); 
 
-    uint64_t pml4e = kernel_pml4[PML4_INDEX(virt)]; 
+    uint64_t pml4e = pml4[PML4_INDEX(virt)]; 
     if(!(pml4e & PTE_PRESENT)) return; 
     uint64_t *pdpt = (uint64_t *)ENTRY_ADDR(pml4e); 
 
@@ -150,23 +109,31 @@ void vmm_unmap(uint64_t virt) {
  * @return uint64_t physical address 
  */
 uint64_t vmm_get_phys(uint64_t virt) { 
-    // uint64_t pml4_phys;
-    // asm volatile("mov %%cr3, %0" : "=r"(pml4_phys));
-    // uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(pml4_phys);
+    uint64_t cur_cr3;
+    asm volatile("mov %%cr3, %0" : "=r"(cur_cr3));
+    uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(cur_cr3);
 
-    uint64_t pml4e = kernel_pml4[PML4_INDEX(virt)]; 
-    if(!(pml4e & PTE_PRESENT)) return 0; 
-    uint64_t *pdpt = (uint64_t *)ENTRY_ADDR(pml4e); 
+    uint64_t pml4e = pml4[PML4_INDEX(virt)];
+    if (!(pml4e & PTE_PRESENT)) return 0;
+    uint64_t *pdpt = (uint64_t *)ENTRY_ADDR(pml4e);
 
-    uint64_t pdpte = pdpt[PDPT_INDEX(virt)]; 
-    if(!(pdpte & PTE_PRESENT)) return 0; 
-    uint64_t *pd = (uint64_t *)ENTRY_ADDR(pdpte); 
+    uint64_t pdpte = pdpt[PDPT_INDEX(virt)];
+    if (!(pdpte & PTE_PRESENT)) return 0;
+    /* check for 1GB huge page */
+    if (pdpte & PTE_HUGE)
+        return ENTRY_ADDR(pdpte) + (virt & 0x3FFFFFFFULL);
+    uint64_t *pd = (uint64_t *)ENTRY_ADDR(pdpte);
 
-    uint64_t pde = pd[PD_INDEX(virt)]; 
-    if(!(pde & PTE_PRESENT)) return 0; 
+    uint64_t pde = pd[PD_INDEX(virt)];
+    if (!(pde & PTE_PRESENT)) return 0;
+    /* check for 2MB huge page — this is what the bootloader uses */
+    if (pde & PTE_HUGE)
+        return ENTRY_ADDR(pde) + (virt & 0x1FFFFFULL);
     uint64_t *pt = (uint64_t *)ENTRY_ADDR(pde);
-    
-    return ENTRY_ADDR(pt[PT_INDEX(virt)]); 
+
+    uint64_t pte = pt[PT_INDEX(virt)];
+    if (!(pte & PTE_PRESENT)) return 0;
+    return ENTRY_ADDR(pte); 
 }
 
 /**
@@ -177,6 +144,84 @@ uint64_t vmm_get_phys(uint64_t virt) {
 void vmm_init(void) { 
     uint64_t cr3; 
     asm volatile("mov %%cr3, %0" : "=r"(cr3)); 
-
-    kernel_pml4 = (uint64_t *)ENTRY_ADDR(cr3); 
+    vga_print("Physical CR3: 0x"); vga_print_hex(cr3); vga_print("\n");
+    
+    // Test if the VMM can find its own code
+    uint64_t test_phys = vmm_get_phys((uint64_t)vmm_init);
+    vga_print("VMM_INIT Phys: 0x"); vga_print_hex(test_phys); vga_print("\n");
 }
+
+
+/**
+ * @brief Allocates a new PML4 and maps the kernel to it's upper half. 
+ *        Every user process needs a kernel mapped to it's upper half so 
+ *        that when a syscall is used and the CPU stays in the same address
+ *        space, the kernel code and data are accessible. 
+ * 
+ *        Lower half entries of the process start empty --- the process gets 
+ *        no user mappings yet. 
+ * 
+ * @return uint64_t Physical address of the new PML4.  
+ */
+uint64_t vmm_create_address_space(void) { 
+    uint64_t *new_pml4 = (uint64_t *)pmm_alloc(); 
+    if(!new_pml4) return 0; 
+
+    /* Get current PML4 to copy kernel mappings from */
+    uint64_t cur_cr3;
+    asm volatile("mov %%cr3, %0" : "=r"(cur_cr3));
+    uint64_t *cur_pml4 = (uint64_t *)ENTRY_ADDR(cur_cr3);
+
+    // /* Zero out PML4 */
+    // for(int i = 0; i < NUM_PAGE_LEVEL_ENTRIES; i++) new_pml4[i] = 0;
+
+    // /* 
+    // Copy upper half of entries (index 256 - 511) 
+    // 256 corresponds to the virtual address 0xFFFF800000000000
+    // These entries map the kernel --- shared across all processes. 
+    // */
+    // for(int i = 256; i < NUM_PAGE_LEVEL_ENTRIES; i++) { 
+    //     new_pml4[i] = cur_pml4[i]; 
+    // }
+
+    for(int i = 0; i < NUM_PAGE_LEVEL_ENTRIES; i++) { // 512
+        new_pml4[i] = cur_pml4[i]; 
+        if(new_pml4[i] & PTE_PRESENT) { 
+            new_pml4[i] |= PTE_USER; 
+        }
+    }
+    
+    return (uint64_t)new_pml4; 
+}
+
+/**
+ * @brief Loads a new PML4 into CR3. This is what the scheduler calls 
+ *        on every context switch when switching between processes with 
+ *        different address spaces. 
+ * 
+ * @param pml4_phys PML4 physical address 
+ */
+void vmm_switch_address_space(uint64_t pml4_phys) { 
+    asm volatile("mov %0, %%cr3" : : "r"(pml4_phys) : "memory"); 
+}
+
+/**
+ * @brief Map a virtual address in a specific address space rather than 
+ *        the current one. Temporarily switches the address space, maps 
+ *        the page, then switches back.
+ * 
+ *        Used during process setup before the process's address space is loaded. 
+ * 
+ * @param pml4_phys Physical address of the new process's PML4 table. 
+ * @param virt The virtual address where to process expects the data to be. 
+ * @param phys Physical address of the actual RAM frame to link to virtual address. 
+ * @param flags For permissions. 
+ */
+void vmm_map_in(uint64_t pml4_phys, uint64_t virt, uint64_t phys, uint64_t flags) { 
+    uint64_t cur_cr3; 
+    asm volatile("mov %%cr3, %0" : "=r"(cur_cr3)); 
+    vmm_switch_address_space(pml4_phys); 
+    vmm_map(virt, phys, flags);
+    vmm_switch_address_space(cur_cr3);  
+}
+

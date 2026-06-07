@@ -23,3 +23,16 @@ it needs to be faked. The stack is set up so that it looks like a process was in
 and had all of it's registers saved. When context switching, it pops RIP and jumps there. Put the 
 process's entry function at the right place on the initial stack. The first time the scheduler 
 switches to a new process, it returns into that process's entry function. 
+
+
+
+
+1. Per-process address spaces — vmm_create_address_space() allocates a fresh PML4 and maps kernel 
+   into upper half. Each user process gets its own CR3.
+2. User stack — map a stack in lower virtual address space for each user process.
+3. Ring 3 drop via iretq — construct a stack frame with user CS/SS selectors and use iretq to 
+   drop privilege level for the first time.
+4. Validate syscall path end-to-end — a ring 3 process executes the syscall instruction, your 
+   entry stub fires, dispatch handles it, sysretq returns.
+5. Shell — a user program that reads keyboard input via SYS_READ (new syscall) and prints 
+   output via SYS_WRITE.

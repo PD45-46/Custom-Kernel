@@ -18,16 +18,29 @@ typedef struct {
     uint64_t cr3;
 } cpu_state_t; 
 
+typedef enum { 
+    WAIT_NONE = 0, 
+    WAIT_SLEEP, 
+    WAIT_KEY
+} wait_reason_t; 
+
 typedef struct process { 
     uint32_t pid; 
     process_state_t state; 
     cpu_state_t context; 
     uint64_t kernel_stack; 
     uint64_t user_stack; 
-    uint64_t page_table; 
+    uint64_t page_table;
+    uint64_t wake_tick;         // tick to wake at 
+    wait_reason_t wait_reason;  // reason for wait 
     struct process *next; 
 } process_t; 
 
+#define USER_STACK_VIRT  0x8000002000ULL  /* top of user stack VA */
+#define USER_STACK_PAGES 4                /* 16KB user stack      */
+#define USER_CODE_VIRT   0x8000200000ULL  /* where user code lives */
+
 process_t *process_create(void (*entry)(void)); 
+process_t *process_create_user(void (*entry)(void)); 
 void process_trampoline_fn(void); 
 void process_destroy(process_t *proc); 

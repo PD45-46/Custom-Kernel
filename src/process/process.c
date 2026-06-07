@@ -1,5 +1,6 @@
 #include "process.h" 
 #include "../memory/heap.h"
+#include "../memory/vmm.h"
 #include "../drivers/vga.h"
 #include "../drivers/pic.h"
 #include <stdint.h> 
@@ -15,6 +16,12 @@ code --- interrupts handlers, syscalls, etc.
 static uint32_t next_pid = 1; 
 
 extern void process_trampoline_fn(void); 
+extern void process_user_trampoline_fn(void);
+
+_Static_assert(offsetof(process_t, page_table) == 176,
+               "update PROCESS_PAGE_TABLE in context.asm");
+_Static_assert(offsetof(process_t, context.rsp) == 8, "RSP offset mismatch");
+_Static_assert(sizeof(process_t) > 176, "Process struct is too small");
 
 /**
  * @brief Allocates and initialises a new process. 
@@ -37,6 +44,7 @@ process_t *process_create(void (entry)(void)) {
     proc->pid = next_pid++; 
     proc->state = PROCESS_READY; 
     proc->kernel_stack = (uint64_t)stack + KERNEL_STACK_SIZE; 
+    proc->page_table = 0; 
     proc->next = NULL; 
 
 
@@ -46,17 +54,117 @@ process_t *process_create(void (entry)(void)) {
 
     uint64_t *sp = (uint64_t *)(stack + KERNEL_STACK_SIZE); 
     
-    sp--; 
-    *sp = (uint64_t)entry; 
+    sp--; *sp = (uint64_t)entry; 
 
-
-
-    sp--; 
-    *sp = (uint64_t)process_trampoline_fn; 
-
+    sp--; *sp = (uint64_t)process_trampoline_fn; 
 
     proc->context.rsp = (uint64_t)sp; 
 
+    return proc; 
+}
+
+
+/**
+ * @brief 
+ * 
+ * @param entry 
+ * @return process_t* 
+ */
+process_t *process_create_user(void (entry)(void)) { 
+    process_t *proc = kcalloc(1, sizeof(process_t)); 
+    if(!proc) return NULL; 
+
+    /* kernel stack --- used when handling syscalls/interrupts */
+    uint8_t *kstack = kmalloc(KERNEL_STACK_SIZE); 
+    if(!kstack) {
+        kfree(proc); 
+        return NULL;  
+    }
+
+    proc->pid = next_pid++; 
+    proc->state = PROCESS_READY; 
+    proc->kernel_stack = (uint64_t)kstack + KERNEL_STACK_SIZE; 
+    proc->next = NULL; 
+
+    /* create private address space */
+    proc->page_table = vmm_create_address_space(); 
+    if(!proc->page_table) { 
+        kfree(kstack);
+        kfree(proc); 
+        return NULL;  
+    }
+
+    /* 
+    Map user stack pages into the new address space. Stack 
+    grows downwards so map pages below USER_STACK_VIRT 
+    VMM_FLAG_USER makes them accessible from ring 3. 
+    */
+    for(int i = 0; i < USER_STACK_PAGES; i++) { 
+        void *frame = pmm_alloc(); 
+        if(!frame) return NULL; /* TODO Add cleanup */
+        uint64_t virt = USER_STACK_VIRT - ((USER_STACK_PAGES - i) * PAGE_SIZE); 
+        vmm_map_in(proc->page_table, virt, (uint64_t)frame, PTE_PRESENT | PTE_WRITABLE | PTE_USER); 
+    }
+    proc->user_stack = USER_STACK_VIRT; 
+
+    /* 
+    Map the entry function's physical page as user accessible. 
+    Find the physical address of the entry function and map it 
+    at USER_CODE_VIRT in the new address space. 
+
+    For now, entry is a kernel function --- map it directly. 
+    Later, when ELF files are loaded, this will be different. 
+    */
+    uint64_t entry_phys = vmm_get_phys(ENTRY_ADDR((uint64_t)entry)); 
+    // uint64_t entry_phys = (uint64_t)entry & ~0xFFFULL;
+    vmm_map_in(proc->page_table, USER_CODE_VIRT, entry_phys, PTE_PRESENT | PTE_USER); 
+    vmm_map_in(proc->page_table, USER_CODE_VIRT + 0x1000, entry_phys + 0x1000, PTE_PRESENT | PTE_USER);
+    uint64_t entry_virt = USER_CODE_VIRT + ((uint64_t)entry & 0xFFFULL); 
+    uint64_t entry_page_virt = (uint64_t)entry & ~0xFFFULL;
+
+    vga_print("entry fn addr:  "); vga_print_hex((uint64_t)entry);      vga_print("\n");
+    vga_print("entry page virt:"); vga_print_hex(entry_page_virt);       vga_print("\n");
+    vga_print("entry_phys:     "); vga_print_hex(entry_phys);            vga_print("\n");
+    vga_print("entry_virt:     "); vga_print_hex(entry_virt);            vga_print("\n");
+    vga_print("user page_table:"); vga_print_hex(proc->page_table);      vga_print("\n");
+
+    if (entry_phys == 0) {
+        vga_print("ERROR: vmm_get_phys returned 0 — kernel fn not mapped\n");
+        for(;;) asm volatile("hlt");
+    }
+
+    /* verify the mapping took effect */
+    uint64_t verify_cur, verify_phys;
+    asm volatile("mov %%cr3, %0" : "=r"(verify_cur));
+    vmm_switch_address_space(proc->page_table);
+    verify_phys = vmm_get_phys(USER_CODE_VIRT);
+    vmm_switch_address_space(verify_cur);
+
+    vga_print("verify mapping: "); vga_print_hex(verify_phys); vga_print("\n");
+    if (verify_phys == 0) {
+        vga_print("ERROR: mapping not installed in user PML4\n");
+        for(;;) asm volatile("hlt");
+    }
+    
+    /*
+    Setup inital kernel stack with retq frame. 
+    When context_switch ret's into process_trampoline_fn, the
+    trampoline builds this retq frame and executes it to drop 
+    into ring 3. 
+
+    Store the user entry VA and user RSP so the trampoline can 
+    build the frame. 
+    */
+    uint64_t *sp = (uint64_t *)(kstack + KERNEL_STACK_SIZE); 
+    // sp--; *sp = 0; // padding 
+    sp--; *sp = proc->user_stack;
+    sp--; *sp = entry_virt; 
+    sp--; *sp = (uint64_t)process_user_trampoline_fn; 
+
+    proc->context.rsp = (uint64_t)sp; 
+    vga_print("proc->context.rsp="); 
+    vga_print_hex(proc->context.rsp); 
+    vga_print("\n"); 
     return proc; 
 }
 
@@ -70,21 +178,10 @@ process_t *process_create(void (entry)(void)) {
  * 
  * @note The trampoline is only ever performed once --- when the process runs
  *       for the first time. 
+ *       TRAMPOLINE IS NOW WRITTEN IN process_asm.asm 
  * 
  */
-// void process_trampoline_fn(void) { 
-//     uint64_t entry_addr; 
-//     asm volatile("pop %0" : "=r"(entry_addr)); 
-//     // asm volatile("outb %0, %1" : : "a"((uint8_t)0x20), "Nd"((uint16_t)0x20));
-//     pic_send_eoi(0); 
-//     asm volatile("sti"); 
 
-//     void (*entry)(void) = (void (*)(void))entry_addr; 
-//     entry(); 
-    
-//     vga_print("[KERNEL] process returned from entry\n"); 
-//     for(;;) asm volatile("hlt");
-// }
 
 /**
  * @brief Frees the memory associated with the process, essentially 

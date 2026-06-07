@@ -11,6 +11,7 @@
 #include "memory/heap.h"
 #include "process/scheduler.h"
 #include "process/process.h"
+#include "user/user_lib.h"
 #include <stdlib.h> 
 
 
@@ -20,12 +21,27 @@
 extern ktest_t pmm_tests[];  extern int pmm_test_count;
 extern ktest_t heap_tests[]; extern int heap_test_count; 
 extern ktest_t process_tests[]; extern int process_test_count; 
+extern ktest_t gdt_tests[]; extern int gdt_test_count; 
+extern ktest_t idt_tests[]; extern int idt_test_count; 
+extern ktest_t pic_tests[]; extern int pic_test_count; 
+extern ktest_t timer_tests[]; extern int timer_test_count; 
+
+
+
+
 
 static void run_all_tests(void) {
     serial_print("\n=== RUNNING KERNEL TESTS ===\n");
     ktest_run("PMM", pmm_tests, pmm_test_count);
     ktest_run("HEAP", heap_tests, heap_test_count); 
     ktest_run("PROCESS", process_tests, process_test_count); 
+    ktest_run("GDT", gdt_tests, gdt_test_count); 
+    ktest_run("IDT", idt_tests, idt_test_count); 
+    ktest_run("PIC", pic_tests, pic_test_count); 
+    ktest_run("TIMER", timer_tests, timer_test_count); 
+
+
+
 
     serial_print("=== TESTS COMPLETE ===\n");
 }
@@ -41,14 +57,18 @@ uint64_t kernel_stack_top = (uint64_t)(syscall_stack + SYSCALL_STACK_SIZE);
 void process_A(void) { 
     while(1) { 
         vga_print("A "); 
-        asm volatile("hlt"); 
+        asm volatile("sti\n\thlt"); 
     }
 }
 
 void process_B(void) { 
+    uint64_t tick = 0; 
     while(1) { 
-        vga_print("B "); 
-        asm volatile("hlt"); 
+        tick++; 
+        if(tick % 18 == 0) { 
+            vga_print("B"); 
+        }
+        asm volatile("sti\n\thlt"); 
     }
 
 }
@@ -58,8 +78,39 @@ void process_C(void) {
     while(1) { 
         uint64_t t = timer_ticks(); 
         vga_print_int(arr[t % 6] + 1); 
-        asm volatile("hlt"); 
+        asm volatile("sti\n\thlt"); 
     } 
+}
+
+/**
+ * Rules for Ring 3 code. 
+ *  - No string literals (they live in the kernel .rodata)
+ *  - No kernel function calls (wrong addresses + ring 3 cant access)
+ *  - Build strings on the stack byte by byte 
+ *  - Communicate only via syscalls 
+ * 
+ */
+void user_process(void) { 
+    char msg[5]; 
+    msg[0]='R'; msg[1]='3'; msg[2]='!'; msg[3]=' '; msg[4]='\0';
+
+    while(1) { 
+        u_write(msg, 3); 
+
+        /* All caller-saved regs in clobber list — compiler must use
+           a callee-saved reg (rbx/r12-r15) for i, which syscall_entry preserves */
+        u_yield(); 
+    }
+}
+
+void user_process_A(void) { 
+    char buf[64]; 
+    char p[] = {'>', ' ', 0}; 
+    u_write(p, 2); 
+    int64_t n = u_read(buf, sizeof(buf) - 1); 
+    buf[n] = 0; 
+    u_write(buf, n); 
+    u_exit(); 
 }
 
 
@@ -77,28 +128,33 @@ void kernel_main(void) {
     vmm_init();      vga_print("[OK] VMM\n");
     heap_init();     vga_print("[OK] Heap\n");
 
-#ifdef RUN_TESTS
-    vga_print("[RUNNING TESTS]\n");
-    asm volatile("cli"); 
-    run_all_tests();
-    asm volatile("sti"); 
-    vga_print("[TESTS DONE]\n");
-#endif
-
     timer_init(100); vga_print("[OK] Timer\n");
     scheduler_init();  vga_print("[OK] Scheduler\n");
     syscall_init();    vga_print("[OK] Syscall\n");
 
-    process_t *a = process_create(process_A);
-    process_t *b = process_create(process_B);
-    process_t *c = process_create(process_C);
-    scheduler_add(a);
-    scheduler_add(b);
-    scheduler_add(c);
+    
+    #ifdef RUN_TESTS
+        vga_print("[RUNNING TESTS]\n");
+        asm volatile("cli"); 
+        run_all_tests();
+        asm volatile("sti"); 
+        vga_print("[TESTS DONE]\n");
+    #endif
+
+    vga_print("Kernel PML4 Index: ");
+    vga_print_int(PML4_INDEX(0x100C00)); // Should be 0
+    vga_print("\n"); 
+
+    // process_t *a = process_create(process_A); scheduler_add(a);
+    // process_t *b = process_create(process_B); scheduler_add(b);  
+    // process_t *c = process_create(process_C); scheduler_add(c); 
+    process_t *u = process_create_user(user_process); scheduler_add(u); 
+    process_t *u_a = process_create_user(user_process_A); scheduler_add(u_a); 
+    
 
     vga_print("Starting scheduler...\n");
     asm volatile("sti");
     scheduler_start();
 
-    for(;;) asm volatile("hlt");
+    for(;;) asm volatile("sti\n\thlt");
 }
