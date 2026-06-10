@@ -27,11 +27,7 @@ Syscall Convention:
 #define SYSGETPID 3
 #define SYS_SLEEP 4
 #define SYS_READ  5 
-
-
-
-
-
+#define SYS_MAP_FB 6 
 
 
 void syscall_init(); 

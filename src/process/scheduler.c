@@ -1,6 +1,7 @@
 #include "scheduler.h"
 #include "process.h"
 #include "../drivers/vga.h"
+#include "../drivers/timer.h"
 #include "../cpu/gdt.h"
 #include <stdint.h> 
 #include <stddef.h> 

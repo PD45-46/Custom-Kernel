@@ -4,12 +4,14 @@
 #include "../process/process.h" 
 #include "../drivers/keyboard.h"
 #include "../drivers/timer.h"
+#include "../memory/vmm.h"
 #include <stdint.h> 
 
 
 /*
 
 */
+#define USER_FB_VIRT 0x8000300000ULL
 
 
 // TODO LOOK AT NOTES.
@@ -121,6 +123,21 @@ static uint64_t sys_getpid(void) {
     return (uint64_t)curr->pid; 
 }
 
+static int64_t sys_map_fb(void) { 
+    process_t *curr = scheduler_current();
+    if(!curr || !curr->page_table) return -1; 
+    /* Map all 16 pages of the vga frame buffer window into user space */
+    for(int i = 0; i < 16; i++) { 
+        vmm_map_in(curr->page_table,
+                   USER_FB_VIRT + i * 0x1000,
+                   0xA0000 + i * 0x1000,
+                   PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+            
+    } 
+    return (uint64_t)USER_FB_VIRT; 
+
+}
+
 /**
  * @brief 
  * 
@@ -134,12 +151,13 @@ int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t ar
     /* Serials... */
     (void)arg3; 
     switch(num) { 
-        case SYS_WRITE: return sys_write(arg1, arg2); 
-        case SYS_EXIT:  return sys_exit(arg1); 
-        case SYS_YIELD: return sys_yield(); 
-        case SYSGETPID: return sys_getpid(); 
-        case SYS_SLEEP: return sys_sleep(arg1); 
-        case SYS_READ:  return sys_read(arg1, arg2); 
+        case SYS_WRITE:  return sys_write(arg1, arg2); 
+        case SYS_EXIT:   return sys_exit(arg1); 
+        case SYS_YIELD:  return sys_yield(); 
+        case SYSGETPID:  return sys_getpid(); 
+        case SYS_SLEEP:  return sys_sleep(arg1); 
+        case SYS_READ:   return sys_read(arg1, arg2); 
+        case SYS_MAP_FB: return sys_map_fb(); 
         default: 
             /* Serials... */
             return -1; 

@@ -52,3 +52,14 @@ uint64_t u_read(char *buf, uint64_t len) {
     );
     return ret;
 }
+
+uint8_t *u_map_fb(void) { 
+    int64_t ret; 
+    asm volatile(
+        "mov $6, %%rax\n syscall\n"
+        : "=a"(ret) 
+        :
+        : "rcx", "r11", "memory"
+    );
+    return (uint8_t *)ret; 
+}

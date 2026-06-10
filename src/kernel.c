@@ -12,6 +12,7 @@
 #include "process/scheduler.h"
 #include "process/process.h"
 #include "user/user_lib.h"
+#include "drivers/framebuffer.h"
 #include <stdlib.h> 
 
 
@@ -132,6 +133,8 @@ void kernel_main(void) {
     scheduler_init();  vga_print("[OK] Scheduler\n");
     syscall_init();    vga_print("[OK] Syscall\n");
 
+
+
     
     #ifdef RUN_TESTS
         vga_print("[RUNNING TESTS]\n");
@@ -141,18 +144,25 @@ void kernel_main(void) {
         vga_print("[TESTS DONE]\n");
     #endif
 
-    vga_print("Kernel PML4 Index: ");
-    vga_print_int(PML4_INDEX(0x100C00)); // Should be 0
-    vga_print("\n"); 
+    // vga_print("Kernel PML4 Index: ");
+    // vga_print_int(PML4_INDEX(0x100C00)); // Should be 0
+    // vga_print("\n"); 
 
     // process_t *a = process_create(process_A); scheduler_add(a);
     // process_t *b = process_create(process_B); scheduler_add(b);  
     // process_t *c = process_create(process_C); scheduler_add(c); 
-    process_t *u = process_create_user(user_process); scheduler_add(u); 
-    process_t *u_a = process_create_user(user_process_A); scheduler_add(u_a); 
-    
+    // process_t *u = process_create_user(user_process); scheduler_add(u); 
+    // process_t *u_a = process_create_user(user_process_A); scheduler_add(u_a);
+    // vga_print("Starting scheduler...\n");
 
-    vga_print("Starting scheduler...\n");
+
+    fb_init(); 
+    fb_clear(FB_BLACK); 
+    fb_draw_rect(0,   0,   160, 100, FB_RED);
+    fb_draw_rect(160, 0,   160, 100, FB_GREEN);
+    fb_draw_rect(0,   100, 160, 100, FB_BLUE);
+    fb_draw_rect(160, 100, 160, 100, FB_YELLOW);
+
     asm volatile("sti");
     scheduler_start();
 
