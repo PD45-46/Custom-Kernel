@@ -117,8 +117,17 @@ process_t *process_create_user(void (entry)(void)) {
     */
     uint64_t entry_phys = vmm_get_phys(ENTRY_ADDR((uint64_t)entry)); 
     // uint64_t entry_phys = (uint64_t)entry & ~0xFFFULL;
-    vmm_map_in(proc->page_table, USER_CODE_VIRT, entry_phys, PTE_PRESENT | PTE_USER); 
-    vmm_map_in(proc->page_table, USER_CODE_VIRT + 0x1000, entry_phys + 0x1000, PTE_PRESENT | PTE_USER);
+    // vmm_map_in(proc->page_table, USER_CODE_VIRT, entry_phys, PTE_PRESENT | PTE_USER); 
+    // vmm_map_in(proc->page_table, USER_CODE_VIRT + 0x1000, entry_phys + 0x1000, PTE_PRESENT | PTE_USER);
+    
+    for(int i = 0; i < 8; i++) { 
+        vmm_map_in(proc->page_table,
+               USER_CODE_VIRT + i * 0x1000,
+               entry_phys + i * 0x1000,
+               PTE_PRESENT | PTE_USER);
+    }
+
+    
     uint64_t entry_virt = USER_CODE_VIRT + ((uint64_t)entry & 0xFFFULL); 
     uint64_t entry_page_virt = (uint64_t)entry & ~0xFFFULL;
 

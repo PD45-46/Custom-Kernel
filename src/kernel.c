@@ -114,6 +114,75 @@ void user_process_A(void) {
     u_exit(); 
 }
 
+void pong(void) {
+    uint8_t *fb = u_map_fb();
+
+    int ball_x = 160, ball_y = 100;
+    int ball_dx = 2,  ball_dy = 1;
+    int p1_y = 80, p2_y = 80;
+
+    const int PAD_W = 4, PAD_H = 30, PAD_SPEED = 2;
+    const int BALL_SIZE = 4;
+
+    while (1) {
+        char k = u_getkey();
+
+        /* left paddle: W / S */
+        if (k == 'w' && p1_y > 0)              p1_y -= PAD_SPEED;
+        if (k == 's' && p1_y < 200 - PAD_H)    p1_y += PAD_SPEED;
+
+        /* right paddle: UP / DOWN arrow */
+        if (k == 'i' && p2_y > 0)            p2_y -= PAD_SPEED;
+        if (k == 'k' && p2_y < 200 - PAD_H)  p2_y += PAD_SPEED;
+
+        /* physics */
+        ball_x += ball_dx;
+        ball_y += ball_dy;
+
+        if (ball_y <= 0 || ball_y >= 200 - BALL_SIZE) ball_dy = -ball_dy;
+
+        if (ball_x <= 8 + PAD_W &&
+            ball_y + BALL_SIZE >= p1_y && ball_y <= p1_y + PAD_H)
+            ball_dx =  2;
+
+        if (ball_x >= 320 - 8 - PAD_W - BALL_SIZE &&
+            ball_y + BALL_SIZE >= p2_y && ball_y <= p2_y + PAD_H)
+            ball_dx = -2;
+
+        /* ball out — show red square, pause, reset */
+        if (ball_x < 0 || ball_x > 320) {
+            for (int i = 0; i < 320 * 200; i++) fb[i] = 0;
+            for (int gy = 70; gy < 130; gy++)
+                for (int gx = 120; gx < 200; gx++)
+                    fb[gy * 320 + gx] = 4;   /* red */
+            u_sleep(150);                     /* hold ~1.5 s */
+            ball_x = 160; ball_y = 100;
+            ball_dx = (ball_dx > 0) ? -2 : 2;
+            continue;                         /* skip normal draw this frame */
+        }
+
+        /* draw */
+        for (int i = 0; i < 320 * 200; i++) fb[i] = 0;
+
+        for (int y = 0; y < 200; y += 6) {
+            int base = y * 320 + 159;
+            fb[base] = 7; fb[base+1] = 7;
+        }
+
+        for (int dy = 0; dy < PAD_H; dy++)
+            for (int dx = 0; dx < PAD_W; dx++) {
+                fb[(p1_y + dy) * 320 + (8   + dx)] = 15;
+                fb[(p2_y + dy) * 320 + (308 + dx)] = 15;
+            }
+
+        for (int dy = 0; dy < BALL_SIZE; dy++)
+            for (int dx = 0; dx < BALL_SIZE; dx++)
+                fb[(ball_y + dy) * 320 + (ball_x + dx)] = 14;
+
+        u_sleep(3);
+    }
+}
+
 
 void kernel_main(void) { 
     serial_init();
@@ -148,7 +217,7 @@ void kernel_main(void) {
     // vga_print_int(PML4_INDEX(0x100C00)); // Should be 0
     // vga_print("\n"); 
 
-    // process_t *a = process_create(process_A); scheduler_add(a);
+    process_t *a = process_create(process_A); scheduler_add(a);
     // process_t *b = process_create(process_B); scheduler_add(b);  
     // process_t *c = process_create(process_C); scheduler_add(c); 
     // process_t *u = process_create_user(user_process); scheduler_add(u); 
@@ -157,11 +226,13 @@ void kernel_main(void) {
 
 
     fb_init(); 
-    fb_clear(FB_BLACK); 
-    fb_draw_rect(0,   0,   160, 100, FB_RED);
-    fb_draw_rect(160, 0,   160, 100, FB_GREEN);
-    fb_draw_rect(0,   100, 160, 100, FB_BLUE);
-    fb_draw_rect(160, 100, 160, 100, FB_YELLOW);
+    // fb_clear(FB_BLACK); 
+    // fb_draw_rect(0,   0,   160, 100, FB_RED);
+    // fb_draw_rect(160, 0,   160, 100, FB_GREEN);
+    // fb_draw_rect(0,   100, 160, 100, FB_BLUE);
+    // fb_draw_rect(160, 100, 160, 100, FB_YELLOW);
+
+    process_t *p = process_create_user(pong); scheduler_add(p); serial_print("Started pong\n"); 
 
     asm volatile("sti");
     scheduler_start();

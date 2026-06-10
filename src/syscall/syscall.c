@@ -123,6 +123,10 @@ static uint64_t sys_getpid(void) {
     return (uint64_t)curr->pid; 
 }
 
+/**
+ * @brief
+ * @return 
+ */
 static int64_t sys_map_fb(void) { 
     process_t *curr = scheduler_current();
     if(!curr || !curr->page_table) return -1; 
@@ -135,8 +139,18 @@ static int64_t sys_map_fb(void) {
             
     } 
     return (uint64_t)USER_FB_VIRT; 
-
 }
+
+/**
+ * @brief
+ * @return 
+ */
+
+static int64_t sys_getkey(void) { 
+    return keyboard_has_char() ? keyboard_getchar() : 0; 
+}
+
+
 
 /**
  * @brief 
@@ -157,7 +171,8 @@ int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t ar
         case SYSGETPID:  return sys_getpid(); 
         case SYS_SLEEP:  return sys_sleep(arg1); 
         case SYS_READ:   return sys_read(arg1, arg2); 
-        case SYS_MAP_FB: return sys_map_fb(); 
+        case SYS_MAP_FB: return sys_map_fb();
+        case SYS_GETKEY: return sys_getkey();  
         default: 
             /* Serials... */
             return -1; 

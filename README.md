@@ -20,11 +20,13 @@ Each entry of the table must point to an assembly stub because the CPU pushes sp
     - Consider VESA/VBE for better colours/resolution. 
     - Double buffering: user process draws to a back buffer in its own memory, then syscall to blit it to the real framebuffer. Supposedly prevents tearing issues. 
 - Storage and filesystem 
-    - If i want to run and load games, i will need a file system. 
-- ELF loader 
+    - If i want to run and load games, i will need a file system.
+- ELF loader
 - Load up DOOM from doomgeneric and map all ports and elements.  
 
-### BUGS TO ADDRESS 
-> When you init the process scheduler with just a user process, the scheduler will bug out after the first print. The same doesn't happen when I start with a kernel process and append a user process after in the scheduler. 
+### BUGS TO ADDRESS
+> When you init the process scheduler with just a user process, the scheduler will bug out after the first print. The same doesn't happen when I start with a kernel process and append a user process after in the scheduler.
  
-> Technically not a bug; change files to be cleaner, for example I have to keep adding header files all across different sections. I need to find a cleaner method for sharing information between different 'modules'. E.g Scheduler has ```scheduler_wake_key_waiter()``` which I then have to link in ```keyboard.c```. 
+> Technically not a bug; change files to be cleaner, for example I have to keep adding header files all across different sections. I need to find a cleaner method for sharing information between different 'modules'. E.g Scheduler has ```scheduler_wake_key_waiter()``` which I then have to link in ```keyboard.c```.
+
+> I need to init a kernel level process A before being able to also run process pong. Adding onto that, pong will run for a while in this state then it will just pause --- perhaps crashing. 
