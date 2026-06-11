@@ -29,6 +29,12 @@ Syscall Convention:
 #define SYS_READ   5 
 #define SYS_MAP_FB 6 
 #define SYS_GETKEY 7 
+#define SYS_OPEN   8
+#define SYS_FREAD  9
+#define SYS_FSEEK  10
+#define SYS_FCLOSE 11
+#define SYS_FSIZE  12
+
 
 void syscall_init(); 
 

@@ -30,3 +30,9 @@ Each entry of the table must point to an assembly stub because the CPU pushes sp
 > Technically not a bug; change files to be cleaner, for example I have to keep adding header files all across different sections. I need to find a cleaner method for sharing information between different 'modules'. E.g Scheduler has ```scheduler_wake_key_waiter()``` which I then have to link in ```keyboard.c```.
 
 > I need to init a kernel level process A before being able to also run process pong. Adding onto that, pong will run for a while in this state then it will just pause --- perhaps crashing. 
+
+> Add comments to EVERYTHING
+
+> Remove magic numbers in all code.
+
+> Add testing for folders: user, filesystems, ... 

@@ -13,6 +13,7 @@
 #include "process/process.h"
 #include "user/user_lib.h"
 #include "drivers/framebuffer.h"
+#include "filesystem/ramdisk.h"
 #include <stdlib.h> 
 
 
@@ -183,24 +184,45 @@ void pong(void) {
     }
 }
 
+void file_test(void) { 
+    /* /hello.txt on the stack */
+    char path[12]; 
+    path[0]='/'; path[1]='h'; path[2]='e'; path[3]='l'; path[4]='l';
+    path[5]='o'; path[6]='.'; path[7]='t'; path[8]='x'; path[9]='t';
+    path[10]='\0';
+
+    int fd = u_open(path);
+    if (fd < 0) { u_exit(); return; }
+
+    char buf[64];
+    int  n = u_fread(fd, buf, 63);
+    u_fclose(fd);
+
+    if (n > 0) u_write(buf, (uint64_t)n);
+    u_exit();
+}
+
 
 void kernel_main(void) { 
     serial_init();
     vga_init();
     vga_print("Kernel Booting...\n");
 
-    gdt_init();      vga_print("[OK] GDT\n");
-    idt_init();      vga_print("[OK] IDT\n");
-    pic_init();      vga_print("[OK] PIC\n");
+    gdt_init();        vga_print("[OK] GDT\n");
+    idt_init();        vga_print("[OK] IDT\n");
+    pic_init();        vga_print("[OK] PIC\n");
     
-    keyboard_init(); vga_print("[OK] Keyboard\n");
-    pmm_init();      vga_print("[OK] PMM\n");
-    vmm_init();      vga_print("[OK] VMM\n");
-    heap_init();     vga_print("[OK] Heap\n");
+    keyboard_init();   vga_print("[OK] Keyboard\n");
+    pmm_init();        vga_print("[OK] PMM\n");
+    vmm_init();        vga_print("[OK] VMM\n");
+    heap_init();       vga_print("[OK] Heap\n");
 
-    timer_init(100); vga_print("[OK] Timer\n");
+    timer_init(100);   vga_print("[OK] Timer\n");
     scheduler_init();  vga_print("[OK] Scheduler\n");
     syscall_init();    vga_print("[OK] Syscall\n");
+    // fb_init();         vga_print("[OK] FrameBuf");
+    ramdisk_init();    vga_print("[OK] Ramdisk");
+
 
 
 
@@ -224,15 +246,15 @@ void kernel_main(void) {
     // process_t *u_a = process_create_user(user_process_A); scheduler_add(u_a);
     // vga_print("Starting scheduler...\n");
 
-
-    fb_init(); 
     // fb_clear(FB_BLACK); 
     // fb_draw_rect(0,   0,   160, 100, FB_RED);
     // fb_draw_rect(160, 0,   160, 100, FB_GREEN);
     // fb_draw_rect(0,   100, 160, 100, FB_BLUE);
     // fb_draw_rect(160, 100, 160, 100, FB_YELLOW);
 
-    process_t *p = process_create_user(pong); scheduler_add(p); serial_print("Started pong\n"); 
+    // process_t *p = process_create_user(pong); scheduler_add(p); serial_print("Started pong\n"); 
+    process_t *hello = process_create_user(file_test); scheduler_add(hello); 
+
 
     asm volatile("sti");
     scheduler_start();

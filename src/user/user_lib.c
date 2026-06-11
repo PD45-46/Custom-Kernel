@@ -39,3 +39,36 @@ char u_getkey(void) {
         : "=a"(ret) :: "rcx","rdx","rsi","rdi","r8","r9","r10","r11","memory");
     return (char)ret;
 }
+int u_open(const char *path) {
+    int64_t r;
+    asm volatile("mov $8,%%rax\nsyscall\n"
+        :"=a"(r):"D"((uint64_t)path)
+        :"rcx","rdx","rsi","r8","r9","r10","r11","memory");
+    return (int)r;
+}
+int u_fread(int fd, void *buf, uint64_t len) {
+    int64_t r;
+    asm volatile("mov $9,%%rax\nsyscall\n"
+        :"=a"(r):"D"((uint64_t)fd),"S"((uint64_t)buf),"d"(len)
+        :"rcx","r8","r9","r10","r11","memory");
+    return (int)r;
+}
+int u_fseek(int fd, int64_t off, int whence) {
+    int64_t r;
+    asm volatile("mov $10,%%rax\nsyscall\n"
+        :"=a"(r):"D"((uint64_t)fd),"S"((uint64_t)off),"d"((uint64_t)whence)
+        :"rcx","r8","r9","r10","r11","memory");
+    return (int)r;
+}
+void u_fclose(int fd) {
+    asm volatile("mov $11,%%rax\nsyscall\n"
+        ::"D"((uint64_t)fd)
+        :"rax","rcx","rdx","rsi","r8","r9","r10","r11","memory");
+}
+int64_t u_fsize(int fd) {
+    int64_t r;
+    asm volatile("mov $12,%%rax\nsyscall\n"
+        :"=a"(r):"D"((uint64_t)fd)
+        :"rcx","rdx","rsi","r8","r9","r10","r11","memory");
+    return r;
+}

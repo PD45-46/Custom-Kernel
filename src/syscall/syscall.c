@@ -5,6 +5,7 @@
 #include "../drivers/keyboard.h"
 #include "../drivers/timer.h"
 #include "../memory/vmm.h"
+#include "../filesystem/ramdisk.h"
 #include <stdint.h> 
 
 
@@ -151,6 +152,23 @@ static int64_t sys_getkey(void) {
 }
 
 
+static int64_t sys_open (uint64_t path) { 
+    return ramdisk_open((const char *)path); 
+}
+static int64_t sys_fread (uint64_t fd, uint64_t buf, uint64_t n) { 
+    return ramdisk_read((int)fd, (void *)buf, n); 
+}
+static int64_t sys_fseek (uint64_t fd, uint64_t off, uint64_t w) { 
+    return ramdisk_seek((int)fd, (int64_t)off, (int)w); 
+}
+static int64_t sys_fclose (uint64_t fd) { 
+    ramdisk_close((int)fd); return 0; 
+}
+static int64_t sys_fsize (uint64_t fd) {
+    return ramdisk_size((int)fd);
+}
+
+
 
 /**
  * @brief 
@@ -163,7 +181,6 @@ static int64_t sys_getkey(void) {
  */
 int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) { 
     /* Serials... */
-    (void)arg3; 
     switch(num) { 
         case SYS_WRITE:  return sys_write(arg1, arg2); 
         case SYS_EXIT:   return sys_exit(arg1); 
@@ -172,7 +189,12 @@ int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t ar
         case SYS_SLEEP:  return sys_sleep(arg1); 
         case SYS_READ:   return sys_read(arg1, arg2); 
         case SYS_MAP_FB: return sys_map_fb();
-        case SYS_GETKEY: return sys_getkey();  
+        case SYS_GETKEY: return sys_getkey();
+        case SYS_OPEN:   return sys_open(arg1); 
+        case SYS_FREAD:  return sys_fread(arg1, arg2, arg3);
+        case SYS_FSEEK:  return sys_fseek(arg1, arg2, arg3);
+        case SYS_FCLOSE: return sys_fclose(arg1);
+        case SYS_FSIZE:  return sys_fsize(arg1);
         default: 
             /* Serials... */
             return -1; 

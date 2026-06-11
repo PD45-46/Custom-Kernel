@@ -24,6 +24,15 @@ ISO    = kernel.iso
 # Build Rules
 # ========================
 
+INITRD_DIR = initrd
+INITRD_TAR = initrd.tar
+INITRD_OBJ = initrd.o
+
+$(INITRD_OBJ): $(wildcard $(INITRD_DIR)/*)
+	tar --format=ustar -cf $(INITRD_TAR) -C $(INITRD_DIR) .
+	x86_64-linux-gnu-objcopy -I binary -O elf64-x86-64 \
+	    -B i386:x86-64 $(INITRD_TAR) $(INITRD_OBJ)
+
 all: $(ISO)
 
 %.o: %.c
@@ -32,7 +41,7 @@ all: $(ISO)
 %.o: %.asm
 	$(AS) $(ASFLAGS) $< -o $@
 
-$(KERNEL): $(OBJ)
+$(KERNEL): $(OBJ) $(INITRD_OBJ)
 	$(LD) $(LDFLAGS) -o $@ $^
 
 $(ISO): $(KERNEL)
@@ -87,5 +96,6 @@ clean:
 	find tests -name '*.o' -delete
 	rm -f $(KERNEL) $(ISO)
 	rm -rf iso
+	rm -f $(INITRD_TAR) $(INITRD_OBJ)
 
 .PHONY: all run clean test debug 

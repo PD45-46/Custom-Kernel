@@ -8,3 +8,8 @@ void u_sleep(uint64_t ticks);
 uint64_t u_read(char *buf, uint64_t len); 
 uint8_t *u_map_fb(void); 
 char u_getkey(void); 
+int u_open(const char *path);
+int u_fread(int fd, void *buf, uint64_t len);
+int u_fseek(int fd, int64_t off, int whence);
+void u_fclose(int fd);
+int64_t u_fsize(int fd);
