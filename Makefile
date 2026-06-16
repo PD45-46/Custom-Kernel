@@ -20,18 +20,34 @@ TEST_OBJ = $(TEST_C:.c=.o)
 KERNEL = kernel.elf
 ISO    = kernel.iso
 
+USER_CFLAGS = -ffreestanding -fno-pic -fno-pie -static -O2 \
+              -fno-stack-protector \
+              -mno-sse -mno-sse2 -mno-avx \
+              -nostdlib -nostartfiles \
+              -Wall -Wextra
+USER_LD     = user_linker.ld
+
 # ========================
 # Build Rules
 # ========================
+
+
 
 INITRD_DIR = initrd
 INITRD_TAR = initrd.tar
 INITRD_OBJ = initrd.o
 
-$(INITRD_OBJ): $(wildcard $(INITRD_DIR)/*)
+$(INITRD_OBJ): initrd/hello.elf $(wildcard $(INITRD_DIR)/*)
 	tar --format=ustar -cf $(INITRD_TAR) -C $(INITRD_DIR) .
 	x86_64-linux-gnu-objcopy -I binary -O elf64-x86-64 \
 	    -B i386:x86-64 $(INITRD_TAR) $(INITRD_OBJ)
+
+initrd/hello.elf: user_programs/hello/main.c src/user/user_lib.c
+	x86_64-linux-gnu-gcc $(USER_CFLAGS) -static -T $(USER_LD) \
+	    -Wl,--build-id=none \
+	    user_programs/hello/main.c src/user/user_lib.c \
+	    -o initrd/hello.elf
+
 
 all: $(ISO)
 
@@ -97,5 +113,6 @@ clean:
 	rm -f $(KERNEL) $(ISO)
 	rm -rf iso
 	rm -f $(INITRD_TAR) $(INITRD_OBJ)
+	rm -f initrd/hello.elf 
 
 .PHONY: all run clean test debug 

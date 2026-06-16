@@ -14,6 +14,7 @@
 #include "user/user_lib.h"
 #include "drivers/framebuffer.h"
 #include "filesystem/ramdisk.h"
+#include "filesystem/elf.h"
 #include <stdlib.h> 
 
 
@@ -235,10 +236,6 @@ void kernel_main(void) {
         vga_print("[TESTS DONE]\n");
     #endif
 
-    // vga_print("Kernel PML4 Index: ");
-    // vga_print_int(PML4_INDEX(0x100C00)); // Should be 0
-    // vga_print("\n"); 
-
     process_t *a = process_create(process_A); scheduler_add(a);
     // process_t *b = process_create(process_B); scheduler_add(b);  
     // process_t *c = process_create(process_C); scheduler_add(c); 
@@ -254,6 +251,11 @@ void kernel_main(void) {
 
     // process_t *p = process_create_user(pong); scheduler_add(p); serial_print("Started pong\n"); 
     process_t *hello = process_create_user(file_test); scheduler_add(hello); 
+
+    char elf_path[] = {'/', 'h','e','l','l','o','.','e','l','f', 0};
+    process_t *ep = process_create_elf(elf_path);
+    if(ep) scheduler_add(ep);  
+
 
 
     asm volatile("sti");

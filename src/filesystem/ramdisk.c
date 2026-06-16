@@ -85,7 +85,7 @@ int ramdisk_seek(int fd, int64_t off, int whence) {
     else if(whence == SEEK_END) np = (int64_t)f->size + off;
     else return -1; 
 
-    if(np > 0) np = 0; 
+    if(np < 0) np = 0; 
     if((uint64_t)np > f->size) np = (int64_t)f->size; 
     f->pos = (uint64_t)np;
     return (int)f->pos;  

@@ -1,0 +1,16 @@
+OUTPUT_FORMAT(elf64-x86-64)
+ENTRY(_start)
+
+PHDRS {
+    text PT_LOAD FLAGS(5);   /* r-x */
+    data PT_LOAD FLAGS(6);   /* rw- */
+}
+
+SECTIONS {
+    . = 0x8001000000;
+
+    .text   : { *(.text*)   } :text
+    .rodata : { *(.rodata*) } :text
+    .data   : { *(.data*)   } :data
+    .bss    : { *(COMMON) *(.bss*) } :data
+}

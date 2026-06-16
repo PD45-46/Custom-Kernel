@@ -36,7 +36,8 @@ typedef struct process {
     struct process *next; 
 } process_t; 
 
-#define USER_STACK_VIRT  0x8000002000ULL  /* top of user stack VA */
+#define KERNEL_STACK_SIZE 16384
+#define USER_STACK_VIRT  0x8000040000ULL  /* top of user stack VA */
 #define USER_STACK_PAGES 4                /* 16KB user stack      */
 #define USER_CODE_VIRT   0x8000200000ULL  /* where user code lives */
 
@@ -44,3 +45,4 @@ process_t *process_create(void (*entry)(void));
 process_t *process_create_user(void (*entry)(void)); 
 void process_trampoline_fn(void); 
 void process_destroy(process_t *proc); 
+process_t *process_alloc(void); 

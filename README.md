@@ -36,3 +36,5 @@ Each entry of the table must point to an assembly stub because the CPU pushes sp
 > Remove magic numbers in all code.
 
 > Add testing for folders: user, filesystems, ... 
+
+> Include more error resolution/print statements in oth vga & serial. 
