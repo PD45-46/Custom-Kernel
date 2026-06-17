@@ -42,10 +42,14 @@ $(INITRD_OBJ): initrd/hello.elf $(wildcard $(INITRD_DIR)/*)
 	x86_64-linux-gnu-objcopy -I binary -O elf64-x86-64 \
 	    -B i386:x86-64 $(INITRD_TAR) $(INITRD_OBJ)
 
-initrd/hello.elf: user_programs/hello/main.c src/user/user_lib.c
-	x86_64-linux-gnu-gcc $(USER_CFLAGS) -static -T $(USER_LD) \
+initrd/hello.elf: user_programs/hello/main.c \
+                  user_programs/hello/malloc.c \
+                  src/user/user_lib.c
+	$(CC) $(USER_CFLAGS) -static -T user_linker.ld \
 	    -Wl,--build-id=none \
-	    user_programs/hello/main.c src/user/user_lib.c \
+	    user_programs/hello/main.c \
+	    user_programs/hello/malloc.c \
+	    src/user/user_lib.c \
 	    -o initrd/hello.elf
 
 

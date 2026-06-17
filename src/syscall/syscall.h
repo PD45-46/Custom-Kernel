@@ -34,6 +34,7 @@ Syscall Convention:
 #define SYS_FSEEK  10
 #define SYS_FCLOSE 11
 #define SYS_FSIZE  12
+#define SYS_SBRK   13
 
 
 void syscall_init(); 

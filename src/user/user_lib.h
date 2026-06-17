@@ -13,3 +13,4 @@ int u_fread(int fd, void *buf, uint64_t len);
 int u_fseek(int fd, int64_t off, int whence);
 void u_fclose(int fd);
 int64_t u_fsize(int fd);
+void *u_sbrk(int64_t increment); 

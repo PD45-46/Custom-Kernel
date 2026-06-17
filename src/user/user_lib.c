@@ -72,3 +72,10 @@ int64_t u_fsize(int fd) {
         :"rcx","rdx","rsi","r8","r9","r10","r11","memory");
     return r;
 }
+void *u_sbrk(int64_t increment) {
+    int64_t r;
+    asm volatile("mov $13,%%rax\nsyscall\n"
+        : "=a"(r) : "D"((uint64_t)increment)
+        : "rcx","rdx","rsi","r8","r9","r10","r11","memory");
+    return (void *)r;
+}

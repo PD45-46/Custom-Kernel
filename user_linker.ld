@@ -11,6 +11,8 @@ SECTIONS {
 
     .text   : { *(.text*)   } :text
     .rodata : { *(.rodata*) } :text
+
+    . = ALIGN(4096);
     .data   : { *(.data*)   } :data
-    .bss    : { *(COMMON) *(.bss*) } :data
+    .bss    : { *(.bss*) *(COMMON) } :data
 }

@@ -168,6 +168,32 @@ static int64_t sys_fsize (uint64_t fd) {
     return ramdisk_size((int)fd);
 }
 
+static int64_t sys_sbrk(int64_t increment) { 
+    process_t *proc = scheduler_current(); 
+    if(!proc || !proc->heap_start) return -1;
+    if(increment == 0) return proc->heap_end; 
+    
+    uint64_t base = proc->heap_start; 
+    uint64_t old_end = proc->heap_end; 
+    uint64_t new_end = old_end + increment; 
+
+    uint64_t old_pages = (old_end > base)
+                       ? ((old_end - base + PAGE_SIZE - 1) / PAGE_SIZE) : 0;
+    uint64_t new_pages = (new_end > base)
+                       ? ((new_end - base + PAGE_SIZE - 1) / PAGE_SIZE) : 0;
+    
+    for(uint64_t i = old_pages; i < new_pages; i++) { 
+        void *frame = pmm_alloc(); 
+        if(!frame) return -1; 
+        vmm_map_in(proc->page_table,
+                   base + i * PAGE_SIZE,
+                   (uint64_t)frame,
+                   PTE_PRESENT | PTE_WRITABLE | PTE_USER); 
+    }
+    proc->heap_end = new_end;
+    return old_end; 
+}
+
 
 
 /**
@@ -195,6 +221,7 @@ int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t ar
         case SYS_FSEEK:  return sys_fseek(arg1, arg2, arg3);
         case SYS_FCLOSE: return sys_fclose(arg1);
         case SYS_FSIZE:  return sys_fsize(arg1);
+        case SYS_SBRK:   return sys_sbrk(arg1); 
         default: 
             /* Serials... */
             return -1; 

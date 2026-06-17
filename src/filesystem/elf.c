@@ -58,16 +58,18 @@ process_t *process_create_elf(const char *path) {
     uint64_t saved_cr3; 
     asm volatile("movq %%cr3, %0" : "=r"(saved_cr3)); 
 
+    uint64_t last_vend = 0; 
+
     for(int i = 0; i < ehdr.e_phnum; i++) { 
         Elf64_Phdr phdr;
         ramdisk_seek(fd, (int64_t)(ehdr.e_phoff + i * sizeof(Elf64_Phdr)), SEEK_SET);
         ramdisk_read(fd, &phdr, sizeof(phdr));
 
-        if(phdr.p_type != PT_LOAD) continue;
-        if(phdr.p_memsz == 0) continue; 
+        if(phdr.p_type != PT_LOAD || phdr.p_memsz == 0) continue;
 
         uint64_t vstart = phdr.p_vaddr & ~0xFFFULL; /* recall the fun for this... */
         uint64_t vend = (phdr.p_vaddr + phdr.p_memsz + 0xFFF) & ~0xFFFULL;
+        if(vend > last_vend) last_vend = vend; 
 
         uint32_t flags = PTE_PRESENT | PTE_USER | PTE_WRITABLE; 
 
@@ -88,6 +90,9 @@ process_t *process_create_elf(const char *path) {
     
     }
     ramdisk_close(fd); 
+
+    proc->heap_start = last_vend ? last_vend : USER_HEAP_BASE; 
+    proc->heap_end = proc->heap_start; 
 
     extern void process_user_trampoline_fn(void); 
     uint64_t *sp = (uint64_t *)proc->kernel_stack; 
