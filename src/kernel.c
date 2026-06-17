@@ -221,7 +221,7 @@ void kernel_main(void) {
     timer_init(100);   vga_print("[OK] Timer\n");
     scheduler_init();  vga_print("[OK] Scheduler\n");
     syscall_init();    vga_print("[OK] Syscall\n");
-    // fb_init();         vga_print("[OK] FrameBuf");
+    fb_init();         vga_print("[OK] FrameBuf");
     ramdisk_init();    vga_print("[OK] Ramdisk");
 
 
