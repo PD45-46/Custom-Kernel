@@ -14,3 +14,4 @@ int u_fseek(int fd, int64_t off, int whence);
 void u_fclose(int fd);
 int64_t u_fsize(int fd);
 void *u_sbrk(int64_t increment); 
+uint64_t u_gettime(void); 

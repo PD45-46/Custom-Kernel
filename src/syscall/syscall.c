@@ -194,6 +194,9 @@ static int64_t sys_sbrk(int64_t increment) {
     return old_end; 
 }
 
+static int64_t sys_gettime(void) { 
+    return (int64_t)(timer_ticks() * 10); /* Hz to ms */
+}
 
 
 /**
@@ -208,20 +211,21 @@ static int64_t sys_sbrk(int64_t increment) {
 int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) { 
     /* Serials... */
     switch(num) { 
-        case SYS_WRITE:  return sys_write(arg1, arg2); 
-        case SYS_EXIT:   return sys_exit(arg1); 
-        case SYS_YIELD:  return sys_yield(); 
-        case SYSGETPID:  return sys_getpid(); 
-        case SYS_SLEEP:  return sys_sleep(arg1); 
-        case SYS_READ:   return sys_read(arg1, arg2); 
-        case SYS_MAP_FB: return sys_map_fb();
-        case SYS_GETKEY: return sys_getkey();
-        case SYS_OPEN:   return sys_open(arg1); 
-        case SYS_FREAD:  return sys_fread(arg1, arg2, arg3);
-        case SYS_FSEEK:  return sys_fseek(arg1, arg2, arg3);
-        case SYS_FCLOSE: return sys_fclose(arg1);
-        case SYS_FSIZE:  return sys_fsize(arg1);
-        case SYS_SBRK:   return sys_sbrk(arg1); 
+        case SYS_WRITE:   return sys_write(arg1, arg2); 
+        case SYS_EXIT:    return sys_exit(arg1); 
+        case SYS_YIELD:   return sys_yield(); 
+        case SYSGETPID:   return sys_getpid(); 
+        case SYS_SLEEP:   return sys_sleep(arg1); 
+        case SYS_READ:    return sys_read(arg1, arg2); 
+        case SYS_MAP_FB:  return sys_map_fb();
+        case SYS_GETKEY:  return sys_getkey();
+        case SYS_OPEN:    return sys_open(arg1); 
+        case SYS_FREAD:   return sys_fread(arg1, arg2, arg3);
+        case SYS_FSEEK:   return sys_fseek(arg1, arg2, arg3);
+        case SYS_FCLOSE:  return sys_fclose(arg1);
+        case SYS_FSIZE:   return sys_fsize(arg1);
+        case SYS_SBRK:    return sys_sbrk(arg1); 
+        case SYS_GETTIME: return sys_gettime(); 
         default: 
             /* Serials... */
             return -1; 

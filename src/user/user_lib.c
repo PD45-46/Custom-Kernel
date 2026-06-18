@@ -79,3 +79,9 @@ void *u_sbrk(int64_t increment) {
         : "rcx","rdx","rsi","r8","r9","r10","r11","memory");
     return (void *)r;
 }
+uint64_t u_gettime(void) { 
+    int64_t r; 
+    asm volatile("mov $14,%%rax\nsyscall\n"
+        : "=a"(r) :: "rcx","rdx","rsi","rdi","r8","r9","r10","r11","memory");
+    return (uint64_t)r;
+}
