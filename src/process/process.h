@@ -40,7 +40,7 @@ typedef struct process {
 
 #define KERNEL_STACK_SIZE 16384
 #define USER_STACK_VIRT  0x8000040000ULL  /* top of user stack VA */
-#define USER_STACK_PAGES 4                /* 16KB user stack      */
+#define USER_STACK_PAGES 32               /* 128KB user stack      */
 #define USER_CODE_VIRT   0x8000200000ULL  /* where user code lives */
 #define USER_HEAP_BASE   0x8004000000ULL
 

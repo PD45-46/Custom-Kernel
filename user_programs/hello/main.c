@@ -1,6 +1,5 @@
+#include "../../src/user/malloc.h"
 #include "../../src/user/user_lib.h"
-#include "malloc.h"
-#include "../../src/drivers/framebuffer.h"
 
 /* TODO REMOVE MAGIC NUMBERS */
 

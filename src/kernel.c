@@ -250,13 +250,21 @@ void kernel_main(void) {
     // fb_draw_rect(160, 100, 160, 100, FB_YELLOW);
 
     // process_t *p = process_create_user(pong); scheduler_add(p); serial_print("Started pong\n"); 
-    process_t *hello = process_create_user(file_test); scheduler_add(hello); 
+    // process_t *hello = process_create_user(file_test); scheduler_add(hello); 
 
-    char elf_path[] = {'/', 'h','e','l','l','o','.','e','l','f', 0};
-    process_t *ep = process_create_elf(elf_path);
-    if(ep) scheduler_add(ep);  
+    // char elf_path[] = {'/', 'h','e','l','l','o','.','e','l','f', 0};
+    // process_t *ep = process_create_elf(elf_path);
+    // if(ep) scheduler_add(ep); 
+    char doom_path[] = {'/','d','o','o','m','.','e','l','f',0}; 
+    process_t *doom = process_create_elf(doom_path); 
+    if(doom) scheduler_add(doom); 
 
 
+    /* Allow user space to write FS.base (needed for musl TLS) */
+    // uint64_t cr4;
+    // asm volatile("mov %%cr4, %0" : "=r"(cr4));
+    // cr4 |= (1ULL << 16);   /* CR4.FSGSBASE */
+    // asm volatile("mov %0, %%cr4" :: "r"(cr4));
 
     asm volatile("sti");
     scheduler_start();

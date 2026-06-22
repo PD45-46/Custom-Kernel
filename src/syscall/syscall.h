@@ -21,21 +21,23 @@ Syscall Convention:
 
 
 
-#define SYS_WRITE   0 
-#define SYS_EXIT    1
-#define SYS_YIELD   2
-#define SYSGETPID   3
-#define SYS_SLEEP   4
-#define SYS_READ    5 
-#define SYS_MAP_FB  6 
-#define SYS_GETKEY  7 
-#define SYS_OPEN    8
-#define SYS_FREAD   9
-#define SYS_FSEEK   10
-#define SYS_FCLOSE  11
-#define SYS_FSIZE   12
-#define SYS_SBRK    13
-#define SYS_GETTIME 14
+#define SYS_WRITE       0 
+#define SYS_EXIT        1
+#define SYS_YIELD       2
+#define SYSGETPID       3
+#define SYS_SLEEP       4
+#define SYS_READ        5 
+#define SYS_MAP_FB      6 
+#define SYS_GETKEY      7 
+#define SYS_OPEN        8
+#define SYS_FREAD       9
+#define SYS_FSEEK       10
+#define SYS_FCLOSE      11
+#define SYS_FSIZE       12
+#define SYS_SBRK        13
+#define SYS_GETTIME     14
+#define SYS_SETPALETTE  15
+#define SYS_SET_FS_BASE 16 
 
 
 void syscall_init(); 

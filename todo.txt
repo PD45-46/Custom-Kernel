@@ -1,38 +1,150 @@
-process.c — process struct creation and destruction
-context.asm — the register save/restore context switch routine
-scheduler.c — round-robin queue, hook into timer interrupt
-syscall.c — syscall instruction handler and dispatch table
-userspace — ring 3 process in its own address space
+CC = x86_64-linux-gnu-gcc
+AS = nasm
+LD = x86_64-linux-gnu-ld
+
+CFLAGS = -m64 -ffreestanding -fno-stack-protector -fno-pic \
+         -mcmodel=kernel -Wall -Wextra \
+         -mno-sse -mno-sse2 -mno-mmx -mno-red-zone -mno-avx \
+         -Iinclude -std=gnu11 -O2 -nostdlib
+
+ASFLAGS = -f elf64
+LDFLAGS = -m elf_x86_64 -T linker.ld -nostdlib
+
+SRC_C   = $(shell find src -name '*.c')
+SRC_ASM = $(shell find src -name '*.asm')
+TEST_C  = $(shell find tests -name '*.c')
+
+OBJ      = $(SRC_C:.c=.o) $(SRC_ASM:.asm=.o)
+TEST_OBJ = $(TEST_C:.c=.o)
+
+KERNEL = kernel.elf
+ISO    = kernel.iso
+
+USER_CFLAGS = -ffreestanding -fno-pic -fno-pie -static -O2 \
+              -fno-stack-protector \
+              -mno-sse -mno-sse2 -mno-avx \
+              -nostdlib -nostartfiles \
+              -Wall -Wextra
+
+DOOM_SRCS = $(shell find user_programs/doom/game/doomgeneric -name '*.c' \
+    ! -name 'doomgeneric_sdl.c'       \
+    ! -name 'doomgeneric_xlib.c'      \
+    ! -name 'doomgeneric_win.c'       \
+    ! -name 'doomgeneric_allegro.c'   \
+    ! -name 'doomgeneric_emscripten.c'\
+    ! -name 'doomgeneric_sosox.c'     \
+    ! -name 'doomgeneric_soso.c'      \
+    ! -name 'doomgeneric_linuxvt.c'   \
+    ! -name 'i_sdlmusic.c'            \
+    ! -name 'i_sdlsound.c'            \
+    ! -name 'i_allegromusic.c'        \
+    ! -name 'i_allegrosound.c')
+
+# ========================
+# Build Rules
+# ========================
 
 
 
-CPU Context Switching 
-A process is nothing more than a snapshot of the CPU state plus a stack. When the process
-isn't running, the CPU state and stack (registers' state) is saved in memory. When running
-again, those values are pulled to resume the process. Context switching is to do this between 
-multiple processes. 
-1. Save process A's RSP
-2. Load process B's RSP 
-3. Pop process B's registers off it's stack 
-4. Return --- but now returning into process B, not A. 
-This is done every time the timer goes off. 
+INITRD_DIR = initrd
+INITRD_TAR = initrd.tar
+INITRD_OBJ = initrd.o
 
-The Process Big-Bang 
-When the first process is created, there is nothing on the stack as it has never run before --- 
-it needs to be faked. The stack is set up so that it looks like a process was interrupted mid-execution 
-and had all of it's registers saved. When context switching, it pops RIP and jumps there. Put the 
-process's entry function at the right place on the initial stack. The first time the scheduler 
-switches to a new process, it returns into that process's entry function. 
+$(INITRD_OBJ): initrd/hello.elf initrd/doom.elf $(wildcard $(INITRD_DIR)/*)
+	tar --format=ustar -cf $(INITRD_TAR) -C $(INITRD_DIR) .
+	x86_64-linux-gnu-objcopy -I binary -O elf64-x86-64 \
+	    -B i386:x86-64 $(INITRD_TAR) $(INITRD_OBJ)
+
+initrd/hello.elf: user_programs/hello/main.c \
+                  src/user/malloc.c \
+                  src/user/user_lib.c
+	$(CC) $(USER_CFLAGS) -static -T user_linker.ld \
+	    -Wl,--build-id=none \
+	    user_programs/hello/main.c \
+	    src/user/malloc.c \
+	    src/user/user_lib.c \
+	    -o initrd/hello.elf
+
+initrd/doom.elf: $(DOOM_SRCS) \
+                 user_programs/doom/doomgeneric_myos.c \
+                 user_programs/doom/doom_platform.c \
+                 src/user/malloc.c \
+                 src/user/user_lib.c
+	musl-gcc -static -nostartfiles -O2 \
+	    -fno-stack-protector \
+	    -DDOOMGENERIC_RESX=320 \
+	    -DDOOMGENERIC_RESY=200 \
+	    -T user_linker.ld -Wl,--build-id=none \
+	    -Iuser_programs/doom/game/doomgeneric \
+	    -o initrd/doom.elf
 
 
 
+all: $(ISO)
 
-1. Per-process address spaces — vmm_create_address_space() allocates a fresh PML4 and maps kernel 
-   into upper half. Each user process gets its own CR3.
-2. User stack — map a stack in lower virtual address space for each user process.
-3. Ring 3 drop via iretq — construct a stack frame with user CS/SS selectors and use iretq to 
-   drop privilege level for the first time.
-4. Validate syscall path end-to-end — a ring 3 process executes the syscall instruction, your 
-   entry stub fires, dispatch handles it, sysretq returns.
-5. Shell — a user program that reads keyboard input via SYS_READ (new syscall) and prints 
-   output via SYS_WRITE.
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+%.o: %.asm
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(KERNEL): $(OBJ) $(INITRD_OBJ)
+	$(LD) $(LDFLAGS) -o $@ $^
+
+$(ISO): $(KERNEL)
+	mkdir -p iso/boot/grub
+	cp $(KERNEL) iso/boot/
+	echo 'menuentry "kernel" { multiboot2 /boot/$(KERNEL) }' > iso/boot/grub/grub.cfg
+	grub-mkrescue -o $@ iso
+
+# ========================
+# Test Build
+# ========================
+
+test: CFLAGS += -DRUN_TESTS
+test: $(OBJ) $(TEST_OBJ)
+	$(LD) $(LDFLAGS) -o $(KERNEL) $^
+	$(MAKE) $(ISO)
+
+# ========================
+# Run / Debug
+# ========================
+
+run: $(ISO)
+	qemu-system-x86_64 -cdrom $(ISO) -m 256M \
+		-serial stdio -no-reboot -no-shutdown
+
+run-headless: $(ISO)
+	qemu-system-x86_64 -cdrom $(ISO) -m 256M \
+		-serial stdio -display none \
+		-no-reboot -no-shutdown
+
+debug: $(ISO)
+	qemu-system-x86_64 -cdrom $(ISO) -m 256M \
+		-serial stdio -no-reboot -no-shutdown \
+		-s -S &
+	gdb $(KERNEL) \
+		-ex "set logging file gdb.log" \
+		-ex "set logging overwrite off" \
+		-ex "set logging enabled on" \
+		-ex "set pagination off" \
+		-ex "set disassemble-next-line on" \
+		-ex "layout asm"\
+		-ex "target remote :1234" \
+		-ex "break kernel_main" \
+		-ex "continue"
+
+# ========================
+# Clean
+# ========================
+
+clean:
+	find src -name '*.o' -delete
+	find tests -name '*.o' -delete
+	rm -f $(KERNEL) $(ISO)
+	rm -rf iso
+	rm -f $(INITRD_TAR) $(INITRD_OBJ)
+	rm -f initrd/hello.elf 
+   rm -f initrd/doom.elf 
+
+.PHONY: all run clean test debug 

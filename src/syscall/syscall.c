@@ -6,13 +6,16 @@
 #include "../drivers/timer.h"
 #include "../memory/vmm.h"
 #include "../filesystem/ramdisk.h"
+#include "../drivers/framebuffer.h"
 #include <stdint.h> 
+#include "../drivers/serial.h"
 
 
 /*
 
 */
-#define USER_FB_VIRT 0x8000300000ULL
+// #define USER_FB_VIRT 0x8000300000ULL
+#define USER_FB_VIRT 0x9000000000ULL
 
 
 // TODO LOOK AT NOTES.
@@ -33,7 +36,7 @@ static int64_t sys_write(uint64_t str_ptr, uint64_t len) {
     
     for(uint64_t i = 0; i < len; i++) { 
         vga_putchar(str[i]); 
-        /* SERIAL PLACEHOLDER */
+        serial_putchar(str[i]); 
     } 
     return (int64_t)len; 
 
@@ -198,6 +201,21 @@ static int64_t sys_gettime(void) {
     return (int64_t)(timer_ticks() * 10); /* Hz to ms */
 }
 
+static int64_t sys_setpalette(uint64_t ptr) { 
+    const int8_t *pal = (const uint8_t *)ptr; 
+    for(int i = 0; i < 256; i++) { 
+        fb_set_palette(i, pal[i*3], pal[i*3+1], pal[i*3+2]); 
+    }
+    return 0;
+}
+
+static int64_t sys_set_fs_base(uint64_t base) { 
+    uint32_t lo = (uint32_t)base;
+    uint32_t hi = (uint32_t)(base >> 32);
+    asm volatile("wrmsr" :: "c"(0xC0000100U), "a"(lo), "d"(hi));
+    return 0;
+}
+
 
 /**
  * @brief 
@@ -211,21 +229,23 @@ static int64_t sys_gettime(void) {
 int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) { 
     /* Serials... */
     switch(num) { 
-        case SYS_WRITE:   return sys_write(arg1, arg2); 
-        case SYS_EXIT:    return sys_exit(arg1); 
-        case SYS_YIELD:   return sys_yield(); 
-        case SYSGETPID:   return sys_getpid(); 
-        case SYS_SLEEP:   return sys_sleep(arg1); 
-        case SYS_READ:    return sys_read(arg1, arg2); 
-        case SYS_MAP_FB:  return sys_map_fb();
-        case SYS_GETKEY:  return sys_getkey();
-        case SYS_OPEN:    return sys_open(arg1); 
-        case SYS_FREAD:   return sys_fread(arg1, arg2, arg3);
-        case SYS_FSEEK:   return sys_fseek(arg1, arg2, arg3);
-        case SYS_FCLOSE:  return sys_fclose(arg1);
-        case SYS_FSIZE:   return sys_fsize(arg1);
-        case SYS_SBRK:    return sys_sbrk(arg1); 
-        case SYS_GETTIME: return sys_gettime(); 
+        case SYS_WRITE:       return sys_write(arg1, arg2); 
+        case SYS_EXIT:        return sys_exit(arg1); 
+        case SYS_YIELD:       return sys_yield(); 
+        case SYSGETPID:       return sys_getpid(); 
+        case SYS_SLEEP:       return sys_sleep(arg1); 
+        case SYS_READ:        return sys_read(arg1, arg2); 
+        case SYS_MAP_FB:      return sys_map_fb();
+        case SYS_GETKEY:      return sys_getkey();
+        case SYS_OPEN:        return sys_open(arg1); 
+        case SYS_FREAD:       return sys_fread(arg1, arg2, arg3);
+        case SYS_FSEEK:       return sys_fseek(arg1, arg2, arg3);
+        case SYS_FCLOSE:      return sys_fclose(arg1);
+        case SYS_FSIZE:       return sys_fsize(arg1);
+        case SYS_SBRK:        return sys_sbrk(arg1); 
+        case SYS_GETTIME:     return sys_gettime(); 
+        case SYS_SETPALETTE:  return sys_setpalette(arg1); 
+        case SYS_SET_FS_BASE: return sys_set_fs_base(arg1); 
         default: 
             /* Serials... */
             return -1; 

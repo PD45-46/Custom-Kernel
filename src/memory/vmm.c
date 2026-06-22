@@ -144,11 +144,28 @@ uint64_t vmm_get_phys(uint64_t virt) {
 void vmm_init(void) { 
     uint64_t cr3; 
     asm volatile("mov %%cr3, %0" : "=r"(cr3)); 
-    vga_print("Physical CR3: 0x"); vga_print_hex(cr3); vga_print("\n");
+    // vga_print("Physical CR3: 0x"); vga_print_hex(cr3); vga_print("\n");
     
     // Test if the VMM can find its own code
+    // uint64_t test_phys = vmm_get_phys((uint64_t)vmm_init);
+    // vga_print("VMM_INIT Phys: 0x"); vga_print_hex(test_phys); vga_print("\n");
+    uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(cr3); 
+    uint64_t *pdpt = (uint64_t *)ENTRY_ADDR(pml4[0]);
+    uint64_t *pd = (uint64_t *)ENTRY_ADDR(pdpt[0]);
+    
+    for(int i = 0; i < 512; i++) { 
+        if(!(pd[i] & PTE_PRESENT)) { 
+            pd[i] = ((uint64_t)i << 21) | PTE_PRESENT | PTE_WRITABLE | PTE_HUGE; 
+        }
+    }
+    // flush tlb 
+    asm volatile("mov %%cr3, %0\n\tmov %0, %%cr3" : "=r"(cr3) :: "memory");
+
+    vga_print("Physical CR3: 0x"); vga_print_hex(cr3); vga_print("\n");
     uint64_t test_phys = vmm_get_phys((uint64_t)vmm_init);
     vga_print("VMM_INIT Phys: 0x"); vga_print_hex(test_phys); vga_print("\n");
+
+
 }
 
 

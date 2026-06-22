@@ -1,4 +1,5 @@
 #include "user_lib.h"
+#include <stdint.h> 
 void u_write(const char *buf, uint64_t len) { 
     asm volatile("mov $0,%%rax\nsyscall\n"
         :: "D"((uint64_t)buf), "S"((uint64_t)len)
@@ -84,4 +85,14 @@ uint64_t u_gettime(void) {
     asm volatile("mov $14,%%rax\nsyscall\n"
         : "=a"(r) :: "rcx","rdx","rsi","rdi","r8","r9","r10","r11","memory");
     return (uint64_t)r;
+}
+void u_setpalette(const uint8_t *palette768) {
+    asm volatile("mov $15,%%rax\nsyscall\n"
+        :: "D"((uint64_t)palette768)
+        : "rax","rcx","rdx","rsi","r8","r9","r10","r11","memory");
+}
+void u_set_fs_base(uint64_t base) { 
+    asm volatile("mov $16,%%rax\nsyscall\n"
+        :: "D"(base)
+        : "rax","rcx","rdx","rsi","r8","r9","r10","r11","memory");
 }
