@@ -36,7 +36,7 @@ uint8_t *u_map_fb(void) {
 }
 char u_getkey(void) {
     int64_t ret;
-    asm volatile("mov $7,%%rax\nsyscall\n"
+    asm volatile("mov $177,%%rax\nsyscall\n"
         : "=a"(ret) :: "rcx","rdx","rsi","rdi","r8","r9","r10","r11","memory");
     return (char)ret;
 }

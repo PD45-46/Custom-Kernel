@@ -28,7 +28,7 @@ Syscall Convention:
 #define SYS_SLEEP       4
 #define SYS_READ        5 
 #define SYS_MAP_FB      6 
-#define SYS_GETKEY      7 
+// #define SYS_GETKEY      7 
 #define SYS_OPEN        8
 #define SYS_FREAD       9
 #define SYS_FSEEK       10
@@ -38,6 +38,8 @@ Syscall Convention:
 #define SYS_GETTIME     14
 #define SYS_SETPALETTE  15
 #define SYS_SET_FS_BASE 16 
+
+#define SYS_GETKEY      177
 
 
 void syscall_init(); 

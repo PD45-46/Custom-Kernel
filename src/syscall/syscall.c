@@ -31,9 +31,9 @@
  *       
  */
 static int64_t sys_write(uint64_t str_ptr, uint64_t len) { 
+    if(str_ptr < 0x1000) return -1; 
     const char *str = (const char *)str_ptr;
     if(!str) return -1; 
-    
     for(uint64_t i = 0; i < len; i++) { 
         vga_putchar(str[i]); 
         serial_putchar(str[i]); 
@@ -156,6 +156,9 @@ static int64_t sys_getkey(void) {
 
 
 static int64_t sys_open (uint64_t path) { 
+    serial_print("DOOM attempting to open file: ");
+    serial_print((const char *)path);
+    serial_print("\n");
     return ramdisk_open((const char *)path); 
 }
 static int64_t sys_fread (uint64_t fd, uint64_t buf, uint64_t n) { 
@@ -173,6 +176,9 @@ static int64_t sys_fsize (uint64_t fd) {
 
 static int64_t sys_sbrk(int64_t increment) { 
     process_t *proc = scheduler_current(); 
+    if(increment > 0) { 
+        serial_print("DOOM expanding heap via sbrk\n"); 
+    }
     if(!proc || !proc->heap_start) return -1;
     if(increment == 0) return proc->heap_end; 
     
@@ -234,10 +240,19 @@ static int64_t linux_syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2
         case 2:   return sys_open(arg1);                 /* open(path,flags) */
         case 3:   return sys_fclose(arg1);               /* close(fd) */
         case 5:   return -1;                             /* fstat – not needed */
+        case 7:   return 0; 
         case 8:   return sys_fseek(arg1, arg2, arg3);   /* lseek(fd,off,whence) */
 
         case 9: { /* mmap – anonymous allocation only */
             if ((int64_t)arg2 <= 0) return -1;
+            process_t *proc = scheduler_current();
+
+            // FIX: Ensure the heap tracking boundary is perfectly page-aligned 
+            // before allocation so mmap returns a compliant page-aligned pointer.
+            if (proc && proc->heap_end) {
+                proc->heap_end = (proc->heap_end + 4095) & ~4095ULL;
+            }
+
             uint64_t len = ((uint64_t)arg2 + 4095) & ~4095ULL;
             int64_t old = sys_sbrk((int64_t)len);
             return old; /* old_end = start of new region */
@@ -246,14 +261,39 @@ static int64_t linux_syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2
         case 11:  return 0;                              /* munmap – ignore */
 
         case 12: { /* brk(new_brk) */
-            process_t *p = scheduler_current();
-            if (!p) return -1;
-            if (arg1 == 0) return (int64_t)p->heap_end;
-            if ((uint64_t)arg1 > p->heap_end) {
-                int64_t inc = (int64_t)((uint64_t)arg1 - p->heap_end);
-                if (sys_sbrk(inc) == -1) return (int64_t)p->heap_end;
+            uint64_t target_addr = arg1;
+            process_t *proc = scheduler_current(); 
+            
+            if(target_addr == 0) { 
+                return proc->heap_end; 
             }
-            return (int64_t)arg1;
+            if(target_addr < proc->heap_start) {
+                return proc->heap_end;
+            }
+
+            // FIX: Always handle valid expansion mapping cleanly
+            if(target_addr > proc->heap_end) { 
+                uint64_t old_heap_end = proc->heap_end;
+                uint64_t new_heap_end = target_addr;
+
+                uint64_t start_page = (old_heap_end + 0xFFF) & ~0xFFFULL;
+                uint64_t end_page   = (new_heap_end + 0xFFF) & ~0xFFFULL;
+
+                uint32_t map_flags = PTE_PRESENT | PTE_USER | PTE_WRITABLE;
+
+                for (uint64_t vaddr = start_page; vaddr < end_page; vaddr += 4096) {
+                    void *physical_frame = pmm_alloc();
+                    if (!physical_frame) {
+                        serial_print("KERNEL PANIC: Out of physical memory backing the heap!\n");
+                        while(1);
+                    }
+                    vmm_map_in(proc->page_table, vaddr, (uint64_t)physical_frame, map_flags);
+                }
+            }
+            
+            // FIX: Always update the heap break to target_addr to comply with Linux expectations
+            proc->heap_end = target_addr;
+            return proc->heap_end; 
         }
 
         case 19: { /* readv(fd, iov, cnt) */
@@ -280,6 +320,12 @@ static int64_t linux_syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2
         }
 
         case 28:  return 0;                              /* madvise – ignore */
+        case 158: { /* FIX: Intercept Linux arch_prctl to initialize Musl's TLS Thread Pointer */
+            if (arg1 == 0x1002) { // ARCH_SET_FS
+                return sys_set_fs_base(arg2);
+            }
+            return -1;
+        }
         case 202: return 0;                              /* futex – fake success */
         case 60:                                         /* exit */
         case 231: return sys_exit(arg1);                 /* exit_group */
@@ -288,8 +334,8 @@ static int64_t linux_syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2
         /* ── Our custom extensions at non-conflicting numbers ── */
         case 4:   return sys_sleep(arg1);               /* u_sleep */
         case 6:   return sys_map_fb();                  /* u_map_fb */
-        case 7:   return sys_getkey();                  /* u_getkey */
-        case 13:  return sys_sbrk((int64_t)arg1);      /* u_sbrk */
+        case 177: return sys_getkey();                  /* u_getkey */
+        case 13:  return sys_sbrk((int64_t)arg1);       /* u_sbrk */
         case 14:  return sys_gettime();                 /* u_gettime */
         case 15:  return sys_setpalette(arg1);          /* u_setpalette */
         case 16:  return sys_set_fs_base(arg1);         /* u_set_fs_base */
