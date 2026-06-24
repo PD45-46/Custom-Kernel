@@ -12,7 +12,7 @@
  * @param 
  * @return 
  */
-process_t *process_create_elf(const char *path) { 
+process_t *process_create_elf(const char *path, int use_linux_abi) { 
     int fd = ramdisk_open(path); 
     if(fd < 0) { 
         serial_print("ELF: file not found\n"); 
@@ -53,7 +53,8 @@ process_t *process_create_elf(const char *path) {
         vmm_map_in(proc->page_table, virt, (uint64_t)frame,
                    PTE_PRESENT | PTE_WRITABLE | PTE_USER);
     }
-    proc->user_stack = USER_STACK_VIRT; 
+    proc->user_stack = USER_STACK_VIRT - 8; 
+    proc->use_linux_abi = (uint8_t)use_linux_abi; 
 
     uint64_t saved_cr3; 
     asm volatile("movq %%cr3, %0" : "=r"(saved_cr3)); 

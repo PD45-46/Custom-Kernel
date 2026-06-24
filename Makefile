@@ -56,7 +56,7 @@ $(INITRD_OBJ): initrd/hello.elf initrd/doom.elf $(wildcard $(INITRD_DIR)/*)
 initrd/hello.elf: user_programs/hello/main.c \
                   src/user/malloc.c \
                   src/user/user_lib.c
-	$(CC) $(USER_CFLAGS) -static -T user_linker.ld \
+	$(CC) $(USER_CFLAGS) -g -static -T user_linker.ld \
 		-Wl,--build-id=none \
 		user_programs/hello/main.c \
 		src/user/malloc.c \
@@ -68,15 +68,15 @@ initrd/doom.elf: $(DOOM_SRCS) \
                  user_programs/doom/doom_platform.c \
                  src/user/malloc.c \
                  src/user/user_lib.c
-	musl-gcc -static -nostartfiles -O2 \
-		-fno-stack-protector \
-		-DDOOMGENERIC_RESX=320 \
-		-DDOOMGENERIC_RESY=200 \
-		-T user_linker.ld -Wl,--build-id=none \
-		-Iuser_programs/doom/game/doomgeneric \
-		-Isrc/user \
-		$^ \
-		-o initrd/doom.elf
+	musl-gcc -static -nostartfiles -O2 -g \
+        -fno-stack-protector \
+        -DDOOMGENERIC_RESX=320 \
+        -DDOOMGENERIC_RESY=200 \
+        -T user_linker.ld -Wl,--build-id=none \
+        -Iuser_programs/doom/game/doomgeneric \
+        -Isrc/user \
+        $^ \
+        -o initrd/doom.elf
 
 all: $(ISO)
 
@@ -109,7 +109,7 @@ test: $(OBJ) $(TEST_OBJ)
 # ========================
 
 run: $(ISO)
-	qemu-system-x86_64 -cdrom $(ISO) -m 256M \
+	qemu-system-x86_64 -cpu max -cdrom $(ISO) -m 256M \
 		-serial stdio -no-reboot -no-shutdown
 
 run-headless: $(ISO)
@@ -117,10 +117,24 @@ run-headless: $(ISO)
 		-serial stdio -display none \
 		-no-reboot -no-shutdown
 
+qemu-debug: $(ISO)
+	qemu-system-x86_64 -cpu max -cdrom $(ISO) -m 256M \
+		-serial stdio -no-reboot -no-shutdown -s -S
+
+# Terminal 2: Just launches the debugger
+gdb-attach:
+	gdb $(KERNEL) \
+		-ex "layout asm"
+		-ex "target remote :1234" \
+		-ex "add-symbol-file initrd/doom.elf 0x0000008001002180" \
+		-ex "break kernel_main" \
+		-ex "continue"
+
 debug: $(ISO)
-	qemu-system-x86_64 -cdrom $(ISO) -m 256M \
+	setsid qemu-system-x86_64 -cpu max -cdrom $(ISO) -m 256M \
 		-serial stdio -no-reboot -no-shutdown \
-		-s -S &
+		-s -S > /dev/null 2>&1 &
+	sleep 1
 	gdb $(KERNEL) \
 		-ex "set logging file gdb.log" \
 		-ex "set logging overwrite off" \
@@ -129,6 +143,7 @@ debug: $(ISO)
 		-ex "set disassemble-next-line on" \
 		-ex "layout asm"\
 		-ex "target remote :1234" \
+		-ex "add-symbol-file initrd/doom.elf" \
 		-ex "break kernel_main" \
 		-ex "continue"
 

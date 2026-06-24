@@ -236,6 +236,22 @@ void kernel_main(void) {
         vga_print("[TESTS DONE]\n");
     #endif
 
+    /* 1. Allow user space to write FS.base (needed for musl TLS) */
+    uint64_t cr4;
+    asm volatile("mov %%cr4, %0" : "=r"(cr4));
+    cr4 |= (1ULL << 16);   /* CR4.FSGSBASE */
+
+    /* 2. Enable SSE Extensions (Crucial for musl-gcc / Doom) */
+    cr4 |= (1ULL << 9);    /* CR4.OSFXSR: Enable fxsave/fxrstor */
+    cr4 |= (1ULL << 10);   /* CR4.OSXMMEXCPT: Enable unmasked SIMD exceptions */
+    asm volatile("mov %0, %%cr4" :: "r"(cr4));
+
+    uint64_t cr0;
+    asm volatile("mov %%cr0, %0" : "=r"(cr0));
+    cr0 &= ~(1ULL << 2);   /* Clear CR0.EM (Emulation bit) */
+    cr0 |= (1ULL << 1);    /* Set CR0.MP (Monitor Coprocessor) */
+    asm volatile("mov %0, %%cr0" :: "r"(cr0));
+
     process_t *a = process_create(process_A); scheduler_add(a);
     // process_t *b = process_create(process_B); scheduler_add(b);  
     // process_t *c = process_create(process_C); scheduler_add(c); 
@@ -253,18 +269,11 @@ void kernel_main(void) {
     // process_t *hello = process_create_user(file_test); scheduler_add(hello); 
 
     // char elf_path[] = {'/', 'h','e','l','l','o','.','e','l','f', 0};
-    // process_t *ep = process_create_elf(elf_path);
+    // process_t *ep = process_create_elf(elf_path, 0);
     // if(ep) scheduler_add(ep); 
     char doom_path[] = {'/','d','o','o','m','.','e','l','f',0}; 
-    process_t *doom = process_create_elf(doom_path); 
+    process_t *doom = process_create_elf(doom_path, 1); 
     if(doom) scheduler_add(doom); 
-
-
-    /* Allow user space to write FS.base (needed for musl TLS) */
-    // uint64_t cr4;
-    // asm volatile("mov %%cr4, %0" : "=r"(cr4));
-    // cr4 |= (1ULL << 16);   /* CR4.FSGSBASE */
-    // asm volatile("mov %0, %%cr4" :: "r"(cr4));
 
     asm volatile("sti");
     scheduler_start();

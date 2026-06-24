@@ -36,6 +36,7 @@ typedef struct process {
     struct process *next; 
     uint64_t heap_start; 
     uint64_t heap_end; 
+    uint8_t use_linux_abi; // 1 = musl/doom uses Linux syscall numbers 
 } process_t; 
 
 #define KERNEL_STACK_SIZE 16384

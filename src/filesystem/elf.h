@@ -39,4 +39,4 @@ typedef struct {
 #define PF_W      2
 #define PF_R      4
 
-process_t *process_create_elf(const char *path);    
+process_t *process_create_elf(const char *path, int use_linux_abi);    

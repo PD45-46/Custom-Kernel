@@ -217,6 +217,88 @@ static int64_t sys_set_fs_base(uint64_t base) {
 }
 
 
+struct linux_iov { void *base; uint64_t len; }; 
+static int64_t linux_syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) { 
+
+    // verify 
+    static int first = 1; 
+    if(first) { 
+        serial_print("LINUX ABI DISPATCH ACTIVE\n"); 
+        first = 0; 
+    }
+
+    switch(num) { 
+        /* ── Linux standard syscalls ── */
+        case 0:   return sys_fread(arg1, arg2, arg3);    /* read(fd,buf,n) */
+        case 1:   return sys_write(arg2, arg3);          /* write(fd,buf,n) */
+        case 2:   return sys_open(arg1);                 /* open(path,flags) */
+        case 3:   return sys_fclose(arg1);               /* close(fd) */
+        case 5:   return -1;                             /* fstat – not needed */
+        case 8:   return sys_fseek(arg1, arg2, arg3);   /* lseek(fd,off,whence) */
+
+        case 9: { /* mmap – anonymous allocation only */
+            if ((int64_t)arg2 <= 0) return -1;
+            uint64_t len = ((uint64_t)arg2 + 4095) & ~4095ULL;
+            int64_t old = sys_sbrk((int64_t)len);
+            return old; /* old_end = start of new region */
+        }
+        case 10:  return 0;                              /* mprotect – ignore */
+        case 11:  return 0;                              /* munmap – ignore */
+
+        case 12: { /* brk(new_brk) */
+            process_t *p = scheduler_current();
+            if (!p) return -1;
+            if (arg1 == 0) return (int64_t)p->heap_end;
+            if ((uint64_t)arg1 > p->heap_end) {
+                int64_t inc = (int64_t)((uint64_t)arg1 - p->heap_end);
+                if (sys_sbrk(inc) == -1) return (int64_t)p->heap_end;
+            }
+            return (int64_t)arg1;
+        }
+
+        case 19: { /* readv(fd, iov, cnt) */
+            struct linux_iov *iov = (struct linux_iov *)arg2;
+            int64_t total = 0;
+            for (int i = 0; i < (int)arg3; i++) {
+                if (!iov[i].len) continue;
+                int r = (int)sys_fread(arg1, (uint64_t)iov[i].base, iov[i].len);
+                if (r <= 0) { if (!total) total = -1; break; }
+                total += r;
+                if ((uint64_t)r < iov[i].len) break;
+            }
+            return total;
+        }
+        case 20: { /* writev(fd, iov, cnt) */
+            struct linux_iov *iov = (struct linux_iov *)arg2;
+            int64_t total = 0;
+            for (int i = 0; i < (int)arg3; i++) {
+                if (!iov[i].len) continue;
+                sys_write((uint64_t)iov[i].base, iov[i].len);
+                total += iov[i].len;
+            }
+            return total;
+        }
+
+        case 28:  return 0;                              /* madvise – ignore */
+        case 202: return 0;                              /* futex – fake success */
+        case 60:                                         /* exit */
+        case 231: return sys_exit(arg1);                 /* exit_group */
+        case 257: return sys_open(arg2);                 /* openat(dirfd,path,flags) */
+
+        /* ── Our custom extensions at non-conflicting numbers ── */
+        case 4:   return sys_sleep(arg1);               /* u_sleep */
+        case 6:   return sys_map_fb();                  /* u_map_fb */
+        case 7:   return sys_getkey();                  /* u_getkey */
+        case 13:  return sys_sbrk((int64_t)arg1);      /* u_sbrk */
+        case 14:  return sys_gettime();                 /* u_gettime */
+        case 15:  return sys_setpalette(arg1);          /* u_setpalette */
+        case 16:  return sys_set_fs_base(arg1);         /* u_set_fs_base */
+
+        default:  return -1;
+    }
+}
+
+
 /**
  * @brief 
  * 
@@ -227,6 +309,12 @@ static int64_t sys_set_fs_base(uint64_t base) {
  * @return int64_t 
  */
 int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) { 
+
+    process_t *curr = scheduler_current(); 
+    if(curr && curr->use_linux_abi) { 
+        return linux_syscall_dispatch(num, arg1, arg2, arg3); 
+    }
+
     /* Serials... */
     switch(num) { 
         case SYS_WRITE:       return sys_write(arg1, arg2); 
