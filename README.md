@@ -1,30 +1,38 @@
 # Custom-Kernel
+
 Writing from scratch in C and Assembly.
 
 ## Early Kernel Bootstrapping and Long Mode Initialisation
-### 1. Module Overview   
+### 1. Module Overview
+
 The target directory: ``` src/boot ```.  
-The ```boot.asm``` module serves as the primary entry point for my custom x86_64 kernel. Since the [Multiboot2 specification](https://www.gnu.org/software/grub/manual/multiboot2/html_node/Machine-state.html) requires the bootloader to transfer control to a 32-bit operating system in Protected Mode with paging disabled, while leaving critical execution state such as the stack pointer and descriptor tables undefined, an assembly bootstrap stub is required to establish the minimal execution environment needed before higher-level kernel code can execute.  
+The ```boot.asm``` module serves as the primary entry point for my custom x86_64 kernel. Since the [__Multiboot2 specification__](https://www.gnu.org/software/grub/manual/multiboot2/html_node/Machine-state.html) requires the bootloader to transfer control to a 32-bit operating system in Protected Mode with paging disabled, while leaving critical execution state such as the stack pointer and descriptor tables undefined, an assembly bootstrap stub is required to establish the minimal execution environment needed before higher-level kernel code can execute.  
 Its primary duties include:  
-1. Validating the image via a Multiboot2 compliant signature. 
+
+1. Validating the image via a Multiboot2 compliant signature.
 2. Configuring a temporary early-boot stack.  
 3. Constructing a basic 4-level paging hierarchy to map early physical memory.  
 4. Transitioning the CPU control state from 32-bit Protected Mode into 64-bit Long Mode.  
 5. Initialising the execution segment registers and aligning the stack to conform to the System V AMD64 ABI before jumping into C code — ```kernel_main()``` in ```kernel.c```.  
 
 ### 2. Multiboot2 Header Verification
+
 ```
 MAGIC    equ 0xe85250d6
 ARCH     equ 0           ; x86
 HDRLEN   equ header_end - header_start
 CHECKSUM equ -(MAGIC + ARCH + HDRLEN)
 ```
+
 __Magic Number__ ```0xe85250d6``` identifies this binary as Multiboot2 executable.  
 __Architecture__ ```0``` signals to the bootloader that the kernel expects to be initialised in i386 32-bit Protected Mode.  
 __Header Length__ and __Checksum__ formally validate the structural integrity of the block, by ensuring that the bootloader fields sum to exactly zero.  
 [__Reference for values__](https://www.gnu.org/software/grub/manual/multiboot2/html_node/Header-magic-fields.html)
+
 ### 3. Early Page Table Construction and Identity Mapping
+
 Before 64-bit execution can be toggled via control registers — ```cr0-cr6``` — the x86_64 architecture requires paging to be active, and a valid 4-level transition tree must be present in the CPU, [__source__](https://stackoverflow.com/questions/77665641/x86-64-running-in-long-mode-64-bit-submode). ```boot.asm``` reservers three contiguous 4096-byte blocks within uninitalised data storage (```.bss```) to build the initial page layout.  
+
 ``` 
 section .bss
 align 4096
@@ -35,6 +43,48 @@ align 16
 stack_bottom: resb 16384
 stack_top:
 ```
+
+1. ```pml4_table```: Page Map Level 4. The first entry is pointed directly to the base physical address of ```pdpt_table```, combined with control flags ```0b11``` — __Present__ and __Read/Write__.
+2. ```pdpt_table```: Page Directory Pointer Table. The first entry is pointed to the physical address of ```pd_table```, also flagged with ```0b11```.  
+3. ```pd_table```: Page Directory. Rather than managing the fourth tier of mapping (Page Tables) for granular 4KB allocations, the kernel establishes optimised 2MB Huge Pages by setting Page Size (bit 7) directly within the Page Directory entries. 
+
+Setup loop maps the first 16MB of physical memory: 
+
+```
+; Link PD entry 0 to a 2MB Huge Page (starts at address 0)
+    mov ecx, 0          ; index
+    mov ebx, 0          ; physical addr
+
+    .map_loop:
+        mov eax, ebx
+        or eax, 0b10000011
+        mov [pd_table + ecx*8], eax
+
+        add ebx, 0x200000    ; next 2MB
+        inc ecx
+        cmp ecx, 8           ; map 16MB
+        jl .map_loop
+```
+
+Identity mapping is vital as the physical location of the code currently executing the memory must correspond exactly to its virtual block. If the virtual address doesn't map directly to the physical address, the instruction pointer would fetch arbitrary instructions when paging is enabled, resulting in a CPU crash.  
+
+### 4. Hardware Long Mode Execution 
+
+The steps to toggling the processor from 32-bit architecture to 64-bit follows:  
+
+1. The physical starting address of ```pml4_table``` is loaded into the translation base (```cr3```) register. 
+2. Bit 5 of the physical address translation (```cr4```) register is flagged. Physical address translation changes the width of the page table records from 32-bits to 64-bits to accommodate for the wider physical address pointers.  
+3. The kernel queries the Extended Feature Enable Register (EFER) at address `0xc0000080` via the `rdmsr` instruction. It sets bit 8 (Long Mode Enable), and writes it back to the CPU execution core using `wrmsr`.  
+4. Bit 31 of `cr0` register (Paging - PG) is flagged. Soon after, the Memory Management Unit begins translating all the memory operations using the loaded PML4 tree.  
+5. Although paging is active, the internal execution segment cache is still operating user 32-bit limits. To resolve this, a preliminary Global Descriptor Table layout `gdt64.layout` is loaded via `lgdt`, followed by an explicit long jump `jmp gdt64.code:long_mode_start`. This flushes the processor prefetch queue and locks the instruction decoder into native 64-bit execution.  
+
+### 5. Execution Environment Sanitation and ABI Handover  
+
+These are just cleanup measures that are taken to ensure platform predictability. This entails clearing out segment registers (ie. setting them to `0`). Also, stack pointer realignment, where `rsp` is moved to `stack_top` and the lowest 4 bits are cleared to align it with the new architecture. And finally, permanent kernel handoff via `call kernel_main` which is in `kernel.c`.  
+
+## CPU Architecture Configuration
+
+
 
 ### What is the GDT
 The Global Descriptor Table (GDT) is a table in memory that defines memory segments, providing context to which segments are allowed to perform certain actions --- privilege rings. Ring 0 is called the kernel mode which has full hardware access and ring 3 is the user mode which has certain restrictions.cIn the modern day the GDT is mostly just a formality --- which must still be loaded correctly --- the CPU requires before the OS is able to do anything of use.  
