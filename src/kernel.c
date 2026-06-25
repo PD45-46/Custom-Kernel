@@ -12,6 +12,9 @@
 #include "process/scheduler.h"
 #include "process/process.h"
 #include "user/user_lib.h"
+#include "drivers/framebuffer.h"
+#include "filesystem/ramdisk.h"
+#include "filesystem/elf.h"
 #include <stdlib.h> 
 
 
@@ -113,24 +116,116 @@ void user_process_A(void) {
     u_exit(); 
 }
 
+void pong(void) {
+    uint8_t *fb = u_map_fb();
+
+    int ball_x = 160, ball_y = 100;
+    int ball_dx = 2,  ball_dy = 1;
+    int p1_y = 80, p2_y = 80;
+
+    const int PAD_W = 4, PAD_H = 30, PAD_SPEED = 2;
+    const int BALL_SIZE = 4;
+
+    while (1) {
+        char k = u_getkey();
+
+        /* left paddle: W / S */
+        if (k == 'w' && p1_y > 0)              p1_y -= PAD_SPEED;
+        if (k == 's' && p1_y < 200 - PAD_H)    p1_y += PAD_SPEED;
+
+        /* right paddle: UP / DOWN arrow */
+        if (k == 'i' && p2_y > 0)            p2_y -= PAD_SPEED;
+        if (k == 'k' && p2_y < 200 - PAD_H)  p2_y += PAD_SPEED;
+
+        /* physics */
+        ball_x += ball_dx;
+        ball_y += ball_dy;
+
+        if (ball_y <= 0 || ball_y >= 200 - BALL_SIZE) ball_dy = -ball_dy;
+
+        if (ball_x <= 8 + PAD_W &&
+            ball_y + BALL_SIZE >= p1_y && ball_y <= p1_y + PAD_H)
+            ball_dx =  2;
+
+        if (ball_x >= 320 - 8 - PAD_W - BALL_SIZE &&
+            ball_y + BALL_SIZE >= p2_y && ball_y <= p2_y + PAD_H)
+            ball_dx = -2;
+
+        /* ball out — show red square, pause, reset */
+        if (ball_x < 0 || ball_x > 320) {
+            for (int i = 0; i < 320 * 200; i++) fb[i] = 0;
+            for (int gy = 70; gy < 130; gy++)
+                for (int gx = 120; gx < 200; gx++)
+                    fb[gy * 320 + gx] = 4;   /* red */
+            u_sleep(150);                     /* hold ~1.5 s */
+            ball_x = 160; ball_y = 100;
+            ball_dx = (ball_dx > 0) ? -2 : 2;
+            continue;                         /* skip normal draw this frame */
+        }
+
+        /* draw */
+        for (int i = 0; i < 320 * 200; i++) fb[i] = 0;
+
+        for (int y = 0; y < 200; y += 6) {
+            int base = y * 320 + 159;
+            fb[base] = 7; fb[base+1] = 7;
+        }
+
+        for (int dy = 0; dy < PAD_H; dy++)
+            for (int dx = 0; dx < PAD_W; dx++) {
+                fb[(p1_y + dy) * 320 + (8   + dx)] = 15;
+                fb[(p2_y + dy) * 320 + (308 + dx)] = 15;
+            }
+
+        for (int dy = 0; dy < BALL_SIZE; dy++)
+            for (int dx = 0; dx < BALL_SIZE; dx++)
+                fb[(ball_y + dy) * 320 + (ball_x + dx)] = 14;
+
+        u_sleep(3);
+    }
+}
+
+void file_test(void) { 
+    /* /hello.txt on the stack */
+    char path[12]; 
+    path[0]='/'; path[1]='h'; path[2]='e'; path[3]='l'; path[4]='l';
+    path[5]='o'; path[6]='.'; path[7]='t'; path[8]='x'; path[9]='t';
+    path[10]='\0';
+
+    int fd = u_open(path);
+    if (fd < 0) { u_exit(); return; }
+
+    char buf[64];
+    int  n = u_fread(fd, buf, 63);
+    u_fclose(fd);
+
+    if (n > 0) u_write(buf, (uint64_t)n);
+    u_exit();
+}
+
 
 void kernel_main(void) { 
     serial_init();
     vga_init();
     vga_print("Kernel Booting...\n");
 
-    gdt_init();      vga_print("[OK] GDT\n");
-    idt_init();      vga_print("[OK] IDT\n");
-    pic_init();      vga_print("[OK] PIC\n");
+    gdt_init();        vga_print("[OK] GDT\n");
+    idt_init();        vga_print("[OK] IDT\n");
+    pic_init();        vga_print("[OK] PIC\n");
     
-    keyboard_init(); vga_print("[OK] Keyboard\n");
-    pmm_init();      vga_print("[OK] PMM\n");
-    vmm_init();      vga_print("[OK] VMM\n");
-    heap_init();     vga_print("[OK] Heap\n");
+    keyboard_init();   vga_print("[OK] Keyboard\n");
+    pmm_init();        vga_print("[OK] PMM\n");
+    vmm_init();        vga_print("[OK] VMM\n");
+    heap_init();       vga_print("[OK] Heap\n");
 
-    timer_init(100); vga_print("[OK] Timer\n");
+    timer_init(100);   vga_print("[OK] Timer\n");
     scheduler_init();  vga_print("[OK] Scheduler\n");
     syscall_init();    vga_print("[OK] Syscall\n");
+    fb_init();         vga_print("[OK] FrameBuf");
+    ramdisk_init();    vga_print("[OK] Ramdisk");
+
+
+
 
     
     #ifdef RUN_TESTS
@@ -141,18 +236,45 @@ void kernel_main(void) {
         vga_print("[TESTS DONE]\n");
     #endif
 
-    vga_print("Kernel PML4 Index: ");
-    vga_print_int(PML4_INDEX(0x100C00)); // Should be 0
-    vga_print("\n"); 
+    /* 1. Allow user space to write FS.base (needed for musl TLS) */
+    uint64_t cr4;
+    asm volatile("mov %%cr4, %0" : "=r"(cr4));
+    cr4 |= (1ULL << 16);   /* CR4.FSGSBASE */
 
-    // process_t *a = process_create(process_A); scheduler_add(a);
+    /* 2. Enable SSE Extensions (Crucial for musl-gcc / Doom) */
+    cr4 |= (1ULL << 9);    /* CR4.OSFXSR: Enable fxsave/fxrstor */
+    cr4 |= (1ULL << 10);   /* CR4.OSXMMEXCPT: Enable unmasked SIMD exceptions */
+    asm volatile("mov %0, %%cr4" :: "r"(cr4));
+
+    uint64_t cr0;
+    asm volatile("mov %%cr0, %0" : "=r"(cr0));
+    cr0 &= ~(1ULL << 2);   /* Clear CR0.EM (Emulation bit) */
+    cr0 |= (1ULL << 1);    /* Set CR0.MP (Monitor Coprocessor) */
+    asm volatile("mov %0, %%cr0" :: "r"(cr0));
+
+    process_t *a = process_create(process_A); scheduler_add(a);
     // process_t *b = process_create(process_B); scheduler_add(b);  
     // process_t *c = process_create(process_C); scheduler_add(c); 
-    process_t *u = process_create_user(user_process); scheduler_add(u); 
-    process_t *u_a = process_create_user(user_process_A); scheduler_add(u_a); 
-    
+    // process_t *u = process_create_user(user_process); scheduler_add(u); 
+    // process_t *u_a = process_create_user(user_process_A); scheduler_add(u_a);
+    // vga_print("Starting scheduler...\n");
 
-    vga_print("Starting scheduler...\n");
+    // fb_clear(FB_BLACK); 
+    // fb_draw_rect(0,   0,   160, 100, FB_RED);
+    // fb_draw_rect(160, 0,   160, 100, FB_GREEN);
+    // fb_draw_rect(0,   100, 160, 100, FB_BLUE);
+    // fb_draw_rect(160, 100, 160, 100, FB_YELLOW);
+
+    // process_t *p = process_create_user(pong); scheduler_add(p); serial_print("Started pong\n"); 
+    // process_t *hello = process_create_user(file_test); scheduler_add(hello); 
+
+    // char elf_path[] = {'/', 'h','e','l','l','o','.','e','l','f', 0};
+    // process_t *ep = process_create_elf(elf_path, 0);
+    // if(ep) scheduler_add(ep); 
+    char doom_path[] = {'/','d','o','o','m','.','e','l','f',0}; 
+    process_t *doom = process_create_elf(doom_path, 1); 
+    if(doom) scheduler_add(doom); 
+
     asm volatile("sti");
     scheduler_start();
 

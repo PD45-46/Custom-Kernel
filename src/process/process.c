@@ -11,7 +11,6 @@ Every process gets a 16KB kernel stack.
 The stack is used when the process is executing kernel 
 code --- interrupts handlers, syscalls, etc. 
 */
-#define KERNEL_STACK_SIZE 16384
 
 static uint32_t next_pid = 1; 
 
@@ -117,8 +116,17 @@ process_t *process_create_user(void (entry)(void)) {
     */
     uint64_t entry_phys = vmm_get_phys(ENTRY_ADDR((uint64_t)entry)); 
     // uint64_t entry_phys = (uint64_t)entry & ~0xFFFULL;
-    vmm_map_in(proc->page_table, USER_CODE_VIRT, entry_phys, PTE_PRESENT | PTE_USER); 
-    vmm_map_in(proc->page_table, USER_CODE_VIRT + 0x1000, entry_phys + 0x1000, PTE_PRESENT | PTE_USER);
+    // vmm_map_in(proc->page_table, USER_CODE_VIRT, entry_phys, PTE_PRESENT | PTE_USER); 
+    // vmm_map_in(proc->page_table, USER_CODE_VIRT + 0x1000, entry_phys + 0x1000, PTE_PRESENT | PTE_USER);
+    
+    for(int i = 0; i < 8; i++) { 
+        vmm_map_in(proc->page_table,
+               USER_CODE_VIRT + i * 0x1000,
+               entry_phys + i * 0x1000,
+               PTE_PRESENT | PTE_USER);
+    }
+
+    
     uint64_t entry_virt = USER_CODE_VIRT + ((uint64_t)entry & 0xFFFULL); 
     uint64_t entry_page_virt = (uint64_t)entry & ~0xFFFULL;
 
@@ -194,4 +202,19 @@ void process_destroy(process_t *proc) {
     uint8_t *stack_base = (uint8_t *)(proc->kernel_stack - KERNEL_STACK_SIZE); 
     kfree(stack_base);
     kfree(proc);  
+}
+
+process_t *process_alloc(void) { 
+    process_t *proc = kcalloc(1, sizeof(process_t)); 
+    if(!proc) return NULL; 
+    uint8_t *kstack = kmalloc(KERNEL_STACK_SIZE);
+    if(!kstack) { 
+        kfree(proc); 
+        return NULL; 
+    }
+    proc->pid = next_pid++;
+    proc->state = PROCESS_READY; 
+    proc->kernel_stack = (uint64_t)kstack + KERNEL_STACK_SIZE; 
+    proc->next = NULL; 
+    return proc; 
 }

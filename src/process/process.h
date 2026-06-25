@@ -34,13 +34,19 @@ typedef struct process {
     uint64_t wake_tick;         // tick to wake at 
     wait_reason_t wait_reason;  // reason for wait 
     struct process *next; 
+    uint64_t heap_start; 
+    uint64_t heap_end; 
+    uint8_t use_linux_abi; // 1 = musl/doom uses Linux syscall numbers 
 } process_t; 
 
-#define USER_STACK_VIRT  0x8000002000ULL  /* top of user stack VA */
-#define USER_STACK_PAGES 4                /* 16KB user stack      */
+#define KERNEL_STACK_SIZE 16384
+#define USER_STACK_VIRT  0x8000040000ULL  /* top of user stack VA */
+#define USER_STACK_PAGES 32               /* 128KB user stack      */
 #define USER_CODE_VIRT   0x8000200000ULL  /* where user code lives */
+#define USER_HEAP_BASE   0x8004000000ULL
 
 process_t *process_create(void (*entry)(void)); 
 process_t *process_create_user(void (*entry)(void)); 
 void process_trampoline_fn(void); 
 void process_destroy(process_t *proc); 
+process_t *process_alloc(void); 
