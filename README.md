@@ -82,7 +82,50 @@ The steps to toggling the processor from 32-bit architecture to 64-bit follows:
 
 These are just cleanup measures that are taken to ensure platform predictability. This entails clearing out segment registers (ie. setting them to `0`). Also, stack pointer realignment, where `rsp` is moved to `stack_top` and the lowest 4 bits are cleared to align it with the new architecture. And finally, permanent kernel handoff via `call kernel_main` which is in `kernel.c`.  
 
-## CPU Architecture Configuration
+## CPU Architecture Configuration and Segment Lifecycle Management  
+
+### 1. Architectural Overview  
+
+Note that though `boot.asm` establishes a temporary state to execute 64-bit code, it doesn't configure any kind of finalised execution environment. This module `src/cpu` establishes important hierarchies including User and Kernel spaces, setting up a Hardware Task Management System for safe transitions, and managing interruptions (IDT/ISR) to trap processor exceptions, timer ticks, and hardware interrupts.  
+
+### 2. Segment Control and Ring Isolation (Global Descriptor Table)
+
+![GDT Table - https://wiki.osdev.org/Global_Descriptor_Table](assets/gdt_table.png)
+__Note that the 64-bit System Segment Descriptor can be represented as a C struct:__
+
+```
+typedef struct __attribute__((packed)) {
+    uint16_t limit_low;
+    uint16_t base_low;
+    uint8_t base_mid;
+    uint8_t type;
+    uint8_t limit_high_flags;
+    uint8_t base_high;
+    uint32_t base_upper;
+    uint32_t reserved;
+} tss_descriptor_t;
+```
+
+The __Base Address__ represents where the Task State Segment (TSS) is located in memory. Note that the address is split into four sections: `base_low`, `base_mid`, `base_high`, and `base_upper` — all adding up to a 64-bit value.  
+The __Limit__ is the size of the TSS descriptor. Follows a similar seperation pattern as __Base Address__ but instead this will add up to a total of 20 bits. Notice that the last 4 bits of __Limit__ is combined with the __Flag__ bits, this is done as to avoid C bitfields and their related compiler uncertainty issues — endianness and bitfield ordering.  
+The __Type__ bits (Access Byte) are used  
+
+### TODO ^ 
+
+
+Loading a new GDT layout into memory via `lgdt` doesn't immediately update the CPU's internal cached segment states. The kernel executes `gdt_flush.asm` to enforce those boundaries. This process simply just loads the GDT pointer, overwrites the data selectors with Ring 0 data token `0x10`, and then those code segments are reloaded with the proper privileges. 
+
+### 3. Privilege Ring Escalation Security (Task State Segment)
+
+In 64-bit mode, the Task State Segment (TSS) hardware task-switching features are deprecated. Instead, the TSS serves to define the target stack pointer during unprivileged (user) ring transition.  
+When a Ring 3 user process triggers a hardware interrupt, exception, or system call (syscall) instruction, the CPU must immediately leave the (untrusted) user stack and jump to a secure kernel-allocated stack area to execute the associated handler.  
+A more technical perspective: 
+- The kernel populates `tss.rsp0` field with the physicall address of the executing process's private kernel stack frame. 
+- When an exception or syscall triggers a transition into Ring 0, the CPU's execution unit reads `tss.rsp0` from the active task block, automatically swaps the stack pointer `rsp` to the safe address, and he user's original stack parameters `ss` `rsp` are pushed onto it for a clean return later.  
+
+### 4. Interrupt Routing and Exception De-multiplexing (Interrupt Descriptor Table)  
+
+
 
 
 
