@@ -295,7 +295,7 @@ static int64_t linux_syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2
             proc->heap_end = target_addr;
             return proc->heap_end; 
         }
-
+        case 16: return 0; 
         case 19: { /* readv(fd, iov, cnt) */
             struct linux_iov *iov = (struct linux_iov *)arg2;
             int64_t total = 0;
@@ -338,7 +338,7 @@ static int64_t linux_syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2
         case 13:  return sys_sbrk((int64_t)arg1);       /* u_sbrk */
         case 14:  return sys_gettime();                 /* u_gettime */
         case 15:  return sys_setpalette(arg1);          /* u_setpalette */
-        case 16:  return sys_set_fs_base(arg1);         /* u_set_fs_base */
+        // case 16:  return sys_set_fs_base(arg1);         /* u_set_fs_base */
 
         default:  return -1;
     }

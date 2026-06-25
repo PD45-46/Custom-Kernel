@@ -92,7 +92,11 @@ void u_setpalette(const uint8_t *palette768) {
         : "rax","rcx","rdx","rsi","r8","r9","r10","r11","memory");
 }
 void u_set_fs_base(uint64_t base) { 
-    asm volatile("mov $16,%%rax\nsyscall\n"
-        :: "D"(base)
-        : "rax","rcx","rdx","rsi","r8","r9","r10","r11","memory");
-}
+    asm volatile(
+        "mov $158, %%rax\n"   /* arch_prctl */
+        "mov $0x1002, %%rdi\n" /* ARCH_SET_FS */
+        "mov %0, %%rsi\n"
+        "syscall\n"
+        :: "r"(base)
+        : "rax","rcx","rdx","rdi","rsi","r8","r9","r10","r11","memory");
+} 
