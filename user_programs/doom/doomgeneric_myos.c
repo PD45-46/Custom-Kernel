@@ -33,23 +33,32 @@ void DG_SleepMs(uint32_t ms) {
     u_sleep(ticks); 
 }
 
-static unsigned char translate_key(char c) { 
-    if(c == 'w') return KEY_UPARROW; 
-    if(c == 's') return KEY_DOWNARROW; 
-    if(c == 'a') return KEY_LEFTARROW; 
-    if(c == 'd') return KEY_RIGHTARROW; 
-    if(c == ' ') return KEY_FIRE; 
-    if(c == '\n') return KEY_ENTER; 
-    if(c == 27) return KEY_ESCAPE; 
-    return (unsigned char)c; 
+static unsigned char sc_to_doom(uint8_t sc) {
+    switch (sc) {
+        case 0x11: return KEY_UPARROW;    /* W */
+        case 0x1F: return KEY_DOWNARROW;  /* S */
+        case 0x1E: return KEY_LEFTARROW;  /* A */
+        case 0x20: return KEY_RIGHTARROW; /* D */
+        case 0x39: return KEY_FIRE;       /* Space */
+        case 0x1C: return KEY_ENTER;      /* Enter */
+        case 0x01: return KEY_ESCAPE;     /* Esc */
+        case 0x38: return KEY_LALT;       /* Left Alt */
+        case 0x1D: return KEY_RCTRL;      /* Ctrl */
+        case 0x16: return KEY_USE;        /* U */
+        default:   return 0;
+    }
 }
 
 int DG_GetKey(int *pressed, unsigned char *doomKey) { 
-    char c = u_getkey(); 
-    if(!c) return 0; 
-    *pressed = 1; 
-    *doomKey = translate_key(c); 
-    return 1; 
+    raw_key_t event; 
+    while(u_get_raw_key(&event)) { 
+        unsigned char dk = sc_to_doom(event.scancode); 
+        if(!dk) continue;
+        *pressed = event.pressed; 
+        *doomKey = dk; 
+        return 1; 
+    }
+    return 0; 
 }
 
 void DG_SetWindowTitle(const char *title) { 

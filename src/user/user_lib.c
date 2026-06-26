@@ -100,3 +100,10 @@ void u_set_fs_base(uint64_t base) {
         :: "r"(base)
         : "rax","rcx","rdx","rdi","rsi","r8","r9","r10","r11","memory");
 } 
+int u_get_raw_key(raw_key_t *event) {
+    int64_t r;
+    asm volatile("mov $18,%%rax\nsyscall\n"
+        : "=a"(r) : "D"((uint64_t)event)
+        : "rcx","rdx","rsi","r8","r9","r10","r11","memory");
+    return (int)r;
+}

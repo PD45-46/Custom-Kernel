@@ -222,6 +222,15 @@ static int64_t sys_set_fs_base(uint64_t base) {
     return 0;
 }
 
+static int64_t sys_get_raw_key(uint64_t buf_ptr) { 
+    key_event_t *out = (key_event_t *)buf_ptr;
+    key_event_t local;
+    if (!keyboard_get_event(&local)) return 0;
+    out->scancode = local.scancode;
+    out->pressed  = local.pressed;
+    return 1;
+}
+
 
 struct linux_iov { void *base; uint64_t len; }; 
 static int64_t linux_syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) { 
@@ -331,7 +340,6 @@ static int64_t linux_syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2
         case 231: return sys_exit(arg1);                 /* exit_group */
         case 257: return sys_open(arg2);                 /* openat(dirfd,path,flags) */
 
-        /* ── Our custom extensions at non-conflicting numbers ── */
         case 4:   return sys_sleep(arg1);               /* u_sleep */
         case 6:   return sys_map_fb();                  /* u_map_fb */
         case 177: return sys_getkey();                  /* u_getkey */
@@ -339,6 +347,7 @@ static int64_t linux_syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2
         case 14:  return sys_gettime();                 /* u_gettime */
         case 15:  return sys_setpalette(arg1);          /* u_setpalette */
         // case 16:  return sys_set_fs_base(arg1);         /* u_set_fs_base */
+        case 18:  return sys_get_raw_key(arg1); 
 
         default:  return -1;
     }

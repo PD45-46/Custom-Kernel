@@ -5,9 +5,16 @@
 #include "../process/scheduler.h"
 
 #define KB_BUFFER_SIZE 64 
+#define KB_EVENT_BUF 32
+
 static char kb_buf[KB_BUFFER_SIZE];
+static key_event_t key_events[KB_EVENT_BUF]; 
+
 static int kb_read_pos = 0; 
 static int kb_write_pos = 0;
+
+static int event_head = 0; 
+static int event_tail = 0;
 
 static char last_key = 0; 
 
@@ -22,6 +29,12 @@ static const char scancode_table[128] = {
     '*',0,' '
 };
 
+static inline uint8_t inb(uint16_t port) { 
+    uint8_t val; 
+    asm volatile("inb %1, %0" : "=a"(val) : "Nd"(port));
+    return val; 
+}
+
 /**
  * @brief Called on every keypress. Read the scancode from port 0x60. 
  *        Those above 0x60 are keyrelease events (ignored). Translate 
@@ -29,9 +42,25 @@ static const char scancode_table[128] = {
  * 
  * @param regs 
  */
-static void keyboard_handler(registers_t *regs) { 
-    (void)regs; 
+static void keyboard_handler(registers_t *regs) {
 
+    uint8_t sc = inb(0x60); 
+    key_event_t event; 
+    event.pressed = !(sc & 0x80); 
+    event.scancode = sc & 0x7F; 
+    int next = (event_tail + 1) % KB_EVENT_BUF; 
+    if(next != event_head) { 
+        key_events[event_tail] = event; 
+        event_tail = next; 
+    }
+
+    if(sc & 0x80) { 
+        pic_send_eoi(1); 
+        return; 
+    }
+
+
+    (void)regs; 
     uint8_t scancode; 
     asm volatile("inb $0x60, %0" : "=a"(scancode));
 
@@ -72,6 +101,15 @@ char keyboard_getchar(void) {
     kb_read_pos = (kb_read_pos + 1) % KB_BUFFER_SIZE; 
     return c; 
 }
+
+int keyboard_get_event(key_event_t *event) { 
+    if(event_head == event_tail) return 0; 
+    *event = key_events[event_head]; 
+    event_head = (event_head + 1) % KB_EVENT_BUF; 
+    return 1; 
+}
+
+
 
 
 

@@ -17,3 +17,6 @@ void    *u_sbrk    (int64_t increment);
 uint64_t u_gettime (void);
 void     u_setpalette(const uint8_t *palette768);
 void     u_set_fs_base(uint64_t base); 
+
+typedef struct { uint8_t scancode; uint8_t pressed; } raw_key_t;
+int u_get_raw_key(raw_key_t *event);
