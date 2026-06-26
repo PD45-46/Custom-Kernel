@@ -68,15 +68,16 @@ initrd/doom.elf: $(DOOM_SRCS) \
                  user_programs/doom/doom_platform.c \
                  src/user/malloc.c \
                  src/user/user_lib.c
-	musl-gcc -static -nostartfiles -O2 -g \
-        -fno-stack-protector \
-        -DDOOMGENERIC_RESX=320 \
-        -DDOOMGENERIC_RESY=200 \
-        -T user_linker.ld -Wl,--build-id=none \
-        -Iuser_programs/doom/game/doomgeneric \
-        -Isrc/user \
-        $^ \
-        -o initrd/doom.elf
+	musl-gcc -static -nostartfiles -O0 -g \
+    	-fno-stack-protector \
+		-fno-builtin-malloc \
+		-fno-builtin-calloc \
+		-fno-builtin-free \
+		-fno-builtin-realloc \
+		-DDOOMGENERIC_RESX=320 -DDOOMGENERIC_RESY=200 \
+		-T user_linker.ld -Wl,--build-id=none \
+		-Iuser_programs/doom/game/doomgeneric -Isrc/user \
+		$^ -o initrd/doom.elf
 
 all: $(ISO)
 
