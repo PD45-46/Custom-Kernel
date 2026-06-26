@@ -1,5 +1,6 @@
 #include "idt.h"
 #include "../drivers/vga.h"
+#include "../drivers/serial.h"
 #include <stdint.h> 
 #include <stddef.h> 
 
@@ -59,21 +60,28 @@ static void idt_set_entry(uint8_t n, uint64_t handler, uint8_t type_attr) {
  * @param regs Pointer to the exact state of the CPU at the moment of the interrupt
  */
 void isr_common_handler(registers_t *regs) { 
+    serial_print("ISR "); serial_print_hex(regs->int_no);
+    serial_print(" err=0x"); serial_print_hex(regs->err_code);
+    serial_print(" rip=0x"); serial_print_hex(regs->rip);
+    serial_print(" cr2=0x"); 
+    uint64_t cr2; asm volatile("mov %%cr2,%0":"=r"(cr2));
+    serial_print_hex(cr2);
+    serial_print("\n");
     if(isr_handlers[regs->int_no]) { 
         isr_handlers[regs->int_no](regs); // goto addr and exec func using regs as param
     } else { 
-        vga_print("EXCEPTION: int=0x"); 
+        // vga_print("EXCEPTION: int=0x"); 
 
-        uint64_t n = regs->int_no; 
-        for (int i = 60; i >= 0; i -= 4) {
-            uint8_t nibble = (n >> i) & 0xF;
-            char c = nibble < 10 ? '0' + nibble : 'A' + nibble - 10;
-            if (c != '0' || i == 0) vga_putchar(c); 
-        }
-        vga_print("  err=");
-        vga_print_hex(regs->err_code); 
-        vga_print("\n");
-        for(;;) asm volatile("hlt");
+        // uint64_t n = regs->int_no; 
+        // for (int i = 60; i >= 0; i -= 4) {
+        //     uint8_t nibble = (n >> i) & 0xF;
+        //     char c = nibble < 10 ? '0' + nibble : 'A' + nibble - 10;
+        //     if (c != '0' || i == 0) vga_putchar(c); 
+        // }
+        // vga_print("  err=");
+        // vga_print_hex(regs->err_code); 
+        // vga_print("\n");
+        // for(;;) asm volatile("hlt");
     }
 }
 
@@ -121,22 +129,24 @@ static void page_fault_handler(registers_t *regs) {
 
 static void ud_handler(registers_t *regs) { 
 
-    vga_print("\n --- DEBUG DUMP --- \n"); 
+    serial_print("\n --- DEBUG DUMP --- \n"); 
     uint64_t *stack = (uint64_t*)regs->rsp; 
     for(int i = 0; i < 8; i++) { 
-        vga_print("Stack["); vga_print_hex(i); vga_print("]: ");
-        vga_print_hex(stack[i]);
-        vga_print("\n");
+        serial_print("Stack["); serial_print_hex(i); serial_print("]: ");
+        serial_print_hex(stack[i]);
+        serial_print("\n");
     }
 
-    vga_print("\n[EXCEPTION] Invalid Opcode (#UD)!\n");
-    vga_print("RIP="); 
-    vga_print_hex(regs->rip);
-    vga_print("\nRAX="); 
-    vga_print_hex(regs->rax); 
-    vga_print("\nCS="); 
-    vga_print_hex(regs->cs); 
-    vga_print("\n"); 
+    serial_print("\n[EXCEPTION] Invalid Opcode (#UD)!\n");
+    serial_print("RIP="); 
+    serial_print_hex(regs->rip);
+    serial_print("\nRAX="); 
+    serial_print_hex(regs->rax); 
+    serial_print("\nCS="); 
+    serial_print_hex(regs->cs); 
+    serial_print("\n"); 
+
+
     
     for(;;) asm volatile("hlt");
 }
