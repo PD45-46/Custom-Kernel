@@ -125,10 +125,40 @@ A more technical perspective:
 
 ### 4. Interrupt Routing and Exception De-multiplexing (Interrupt Descriptor Table)  
 
+The Interrupt Descriptor Table is what the CPU uses to located the correct handler routine when an exception or hardware interrupt fires. Each of the 256 possible interrupt vectors maps to a unique gate descriptor that encodes the handler's address, privilege level, and gate type:  
+
+```
+typedef struct __attribute__((packed)) { 
+    uint16_t offset_low; 
+    uint16_t segment_selector; 
+    uint8_t  ist; 
+    uint8_t  type_attr;
+    uint16_t offset_mid; 
+    uint32_t offset_high; 
+    uint32_t zero; 
+} idt_entry_t; 
+```
+The `type_attr` field controls the gate type — `0xE` for an interrupt gate. 
 
 
 
-
+## Running the Code
+### Libs
+```
+sudo apt install build-essential nasm gcc-x86-64-linux-gnu \
+    binutils-x86-64-linux-gnu musl-tools grub-pc-bin \
+    grub-common xorriso qemu-system-x86 mtools
+```
+### Running the system
+```
+../Custom-Kernel$ make clean && make && make run
+```
+```
+../Custom-Kernel$ make clean && make debug && make run
+```
+```
+../Custom-Kernel$ make clean && make test && make run
+```
 ### What is the GDT
 The Global Descriptor Table (GDT) is a table in memory that defines memory segments, providing context to which segments are allowed to perform certain actions --- privilege rings. Ring 0 is called the kernel mode which has full hardware access and ring 3 is the user mode which has certain restrictions.cIn the modern day the GDT is mostly just a formality --- which must still be loaded correctly --- the CPU requires before the OS is able to do anything of use.  
 
