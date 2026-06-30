@@ -138,8 +138,68 @@ typedef struct __attribute__((packed)) {
     uint32_t zero; 
 } idt_entry_t; 
 ```
-The `type_attr` field controls the gate type — `0xE` for an interrupt gate. 
+The `type_attr` field controls the gate type — `0xE` for an interrupt gate, which automatically clears RLFLAGS. ... __TODO__ 
 
+## Physical Memory Management 
+### 1. Module Overview 
+The target directory: `src/memory/pmm.c`  
+
+The __Physical Memory Manager__ is the lowest-level allocator in the kernel. Its only job is to track which 4KB physical frames of RAM are free and handing them out on demand. Every higher-level subsystem — the VMM, the heap, the ELF loader — ultimately calls into the PMM to obtain raw physical memory.  
+
+### 2. Allocator Design  
+The PMM uses a __bitmap allocator__: a flat array of bits where each bit corresponds to one 4KB physical frame — where `0` is free, and `1` means it is in use. 
+
+```
+static uint8_t bitmap[BITMAP_SIZE]; 
+
+void *pmm_alloc(void) { 
+    for(uint32_t i = 0; i < TOTAL_FRAMES; i++) { 
+        if(!bitmap_test(i)) { 
+            bitmap_set(i); 
+            free_frame_count--; 
+            return (void *)(uintptr_t)(i * PAGE_SIZE); 
+        }
+    }
+    return NULL; 
+}
+```
+
+### 3. Why Not Use a More Sophisticated Allocator? 
+A buddy system or slab allocator would reduce memory fragmentation for mixed-sized allocations, but the PMM only ever hands out 4KB frames in this system. All higher level fragmentation is handled by the __Virtual Memory Manager__ and the kernel heap.  
+
+## Virtual Memory Management: TODO ADD Page Map Level diagram 
+### 1. Module Overview 
+The target directory: `src/memory/vmm.c` 
+
+The __Virtual Memory Manager__ owns the 4-level page table hierarchy at runtime. It provides my kernel with the ability to create isolated address spaces for user programs, install arbitrary virtual-to-physical mappings, and switch between address spaces on context switches.  
+
+### 2. Page Table Traversal 
+`vmm_map()` walks the live PML4 tree (read from register `cr3`) four levels deep, allocating intermediate tables using `pmm_alloc()` whenever an entry is absent, and installs the final 4KB mapping at PT level. 
+
+```
+void vmm_map(uint64_t virt, uint64_t phys, uint64_t flags) { 
+    uint64_t cur_cr3; 
+    asm volatile("mov %%cr3, %0" : "=r"(cur_cr3)); 
+    uint64_t *pml4 = (uint64_t *)ENTRY_ADDR(cur_cr3); 
+
+    uint64_t *pdpt = get_or_create_table(&pml4[PML4_INDEX(virt)], PTE_WRITABLE | PTE_USER);
+    uint64_t *pd = get_or_create_table(&pdpt[PDPT_INDEX(virt)], PTE_WRITABLE | PTE_USER); 
+    uint64_t *pt = get_or_create_table(&pd[PD_INDEX(virt)], PTE_WRITABLE | PTE_USER);
+    pt[PT_INDEX(virt)] = phys | flags | PTE_PRESENT; 
+
+    asm volatile("invlpg (%0)" : : "r"(virt) : "memory");
+}
+```
+
+`vmm_map_in()` temporarily switches `cr3` to a target address space, calls `vmm_map()`, then restores the original `cr3`. This is used during process creation to install mappings into a process's private page table before it scheduled. 
+
+### 3. Address Space Isolation 
+`vmm_create_address_space()` allocates a fresh PML4 frame and copies all 512 entries from the current kernel PML4 into it, making each present entry as `PTE_USER`. This gives every user process a private lower-half address space while sharing the kernel's upper-half mappings — ensuring that the kernel remains reachable after syscall without switching to `cr3`.  
+
+### 4. Identity Mapping Extension 
+GRUB's initial page tables only identity-map a small region of physical RAM. Once the kernel embeds the full initrd (containing `doom.elf` and `doom1.wad`, totalling about 15MB), PMM frame allocations land above GRUB's mapped region. `vmm_init()` extends GRUB's existing Page Directory to cover the full first 1GB via 512 × 2MB huge pages, ensuring that every physical frame returned by `pmm_alloc()` is directly accessible as a virtual address throughout kernel execution.
+
+## Kernel Heap 
 
 
 ## Running the Code
