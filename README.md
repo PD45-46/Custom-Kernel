@@ -2,7 +2,12 @@
 
 Creating my own kernel from scratch in C and Assembly getting DOOM to run on it. 
 
-![Watch the video](assets/doom_kernel.mp4)
+<video width="640" height="360" controls>
+  <source src="assets/doom_kernel.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+If the video isn't working, go to `assets` folder and click on `doom_kernel.mp4`. 
 
 
 ## Early Kernel Bootstrapping and Long Mode Initialisation
