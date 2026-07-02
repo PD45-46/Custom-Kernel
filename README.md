@@ -7,7 +7,7 @@ Creating my own kernel from scratch in C and Assembly getting DOOM to run on it.
   Your browser does not support the video tag.
 </video>
 
-If the video isn't working, go to `assets` folder and click on `doom_kernel.mp4`. 
+If the video isn't working, go to `assets` folder and click on `doom_kernel.mp4`, and `view raw`. 
 
 
 ## Early Kernel Bootstrapping and Long Mode Initialisation
