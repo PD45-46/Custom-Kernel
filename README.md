@@ -1,6 +1,9 @@
 # Custom-Kernel
 
-Writing from scratch in C and Assembly.
+Creating my own kernel from scratch in C and Assembly getting DOOM to run on it. 
+
+![Watch the video](assets/doom_kernel.mp4)
+
 
 ## Early Kernel Bootstrapping and Long Mode Initialisation
 ### 1. Module Overview
@@ -432,7 +435,7 @@ sudo apt install build-essential nasm gcc-x86-64-linux-gnu \
 ../Custom-Kernel$ make clean && make test && make run
 ```
 
-### BUGS TO ADDRESS... 
+### BUGS AND ISSUES TO ADDRESS... 
 > When you init the process scheduler with just a user process, the scheduler will bug out after the first print. The same doesn't happen when I start with a kernel process and append a user process after in the scheduler.
  
 > Technically not a bug; change files to be cleaner, for example I have to keep adding header files all across different sections. I need to find a cleaner method for sharing information between different 'modules'. E.g Scheduler has ```scheduler_wake_key_waiter()``` which I then have to link in ```keyboard.c```.
