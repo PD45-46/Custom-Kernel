@@ -200,8 +200,62 @@ void vmm_map(uint64_t virt, uint64_t phys, uint64_t flags) {
 GRUB's initial page tables only identity-map a small region of physical RAM. Once the kernel embeds the full initrd (containing `doom.elf` and `doom1.wad`, totalling about 15MB), PMM frame allocations land above GRUB's mapped region. `vmm_init()` extends GRUB's existing Page Directory to cover the full first 1GB via 512 × 2MB huge pages, ensuring that every physical frame returned by `pmm_alloc()` is directly accessible as a virtual address throughout kernel execution.
 
 ## Kernel Heap 
+### 1. Memory Allocation Overview 
+The target directory: `src/memory/heap.c`  
+
+The kernel heap provides `kmalloc`, `kfree`, and `kcalloc`. It sits above the PMM — obtaining large contiguous regions from `pmm_alloc()` and subdividing them into various sizes. I won't be going into too much detail about dynamic memory allocation, as if you're reading this, there is a very high chance you already know how most of it works under the hood.  
+
+## Process Management 
+### 1. Subsystem Overview 
+The target directory: `src/process/`  
+
+This subsystem defines __process abstraction__ — the data structure representing an execution context, the logic for creating kernel and user programs, and the assembly trampolines that perform ring transitions and context switches. _Note that this section is also has high dependency on syscalls._  
+
+### 2. The Process Descriptor  
+Every process is made up of the struct:  
+```
+typedef struct process { 
+    uint32_t        pid; 
+    process_state_t state; 
+    cpu_state_t     context; 
+    uint64_t        kernel_stack; 
+    uint64_t        user_stack; 
+    uint64_t        page_table;
+    uint64_t        wake_tick;
+    wait_reason_t   wait_reason; 
+    struct process  *next; 
+    uint64_t        heap_start; 
+    uint64_t        heap_end; 
+    uint8_t         use_linux_abi; 
+} process_t; 
+```
+The `page_table` field's offset within the struct is verified by a `_Static_assert` and referenced directly in `context.asm` during context switches — keeping the Assembly and C definitions in synch at compile time.  
+
+### 3. Kernel and User Processes 
+__Kernel processes__ (`process_create`) run entirely in Ring 0 and share the kernel's page table (`page_table = 0`). They're used for internal background tasks.  
+__User processes__ (`process_create_user`, `process_create_elf`) run entirely in Ring 3 with a private address space. Their creation involves:  
+1. Allocating a private PML4 via `vmm_create_address_space`. 
+2. Mapping a 128KB user stack (32 pages) below `USER_STACK_VIRT = 0x8000040000`.  
+3. Installing the entry point (either a kernel function mapped at `USER_CODE_VIRT`, or ELF segments loaded from the ramdisk).  
+4. Setting up the kernel stack with a fake initial frame so the `trampoline` function can perform the first Ring 3 entry via `iretq`.  
+
+### 4. Ring Transition Trampolines 
+The first time a process is scheduled, the context switch `ret`s into `process_trampoline_fn` (in `process_asm.asm`). The trampoline builds a synthetic `iretq` frame on the kernel stack:  
+```
+; Stack layout before iretq:
+; [user SS]  [user RSP]  [RFLAGS]  [user CS]  [user RIP]
+push USER_SS
+push [user_rsp from stack]
+push 0x202          ; RFLAGS: interrupts enabled
+push USER_CS
+push [entry_rip from stack]
+iretq               ; drops into Ring 3
+```
+This separates first-run intialisation from stead-state context switching, which only ever saves and restores the the general-purpose register file. 
+_Note that the extract here is a simplified version of what is in `process_asm.asm`_.  
 
 
+## Process Scheduler 
 ## Running the Code
 ### Libs
 ```
