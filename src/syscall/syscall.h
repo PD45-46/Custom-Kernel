@@ -39,7 +39,10 @@ Syscall Convention:
 #define SYS_SETPALETTE  15
 #define SYS_SET_FS_BASE 16 
 
+// skip 17 
+#define SYS_GET_RAW_KEY 18
 #define SYS_GETKEY      177
+
 
 
 void syscall_init(); 

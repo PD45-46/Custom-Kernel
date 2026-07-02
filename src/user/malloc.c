@@ -85,11 +85,17 @@ void *realloc(void *ptr, uint64_t new_size) {
     free(ptr); return fresh;
 }
 
+__attribute((noinline))
 void *calloc(uint64_t nmemb, uint64_t size) {
     uint64_t total = nmemb * size;
     void *p = malloc(total);
     if (p) { uint8_t *b = (uint8_t *)p; for (uint64_t i=0;i<total;i++) b[i]=0; }
     return p;
+}
+
+__attribute__((noinline))
+void *__calloc(uint64_t nmemb, uint64_t size) {
+    return calloc(nmemb, size);
 }
 
 /* I am not about to rewrite malloc again... */

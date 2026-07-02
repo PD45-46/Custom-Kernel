@@ -68,15 +68,16 @@ initrd/doom.elf: $(DOOM_SRCS) \
                  user_programs/doom/doom_platform.c \
                  src/user/malloc.c \
                  src/user/user_lib.c
-	musl-gcc -static -nostartfiles -O2 -g \
-        -fno-stack-protector \
-        -DDOOMGENERIC_RESX=320 \
-        -DDOOMGENERIC_RESY=200 \
-        -T user_linker.ld -Wl,--build-id=none \
-        -Iuser_programs/doom/game/doomgeneric \
-        -Isrc/user \
-        $^ \
-        -o initrd/doom.elf
+	musl-gcc -static -nostartfiles -O0 -g \
+    	-fno-stack-protector \
+		-fno-builtin-malloc \
+		-fno-builtin-calloc \
+		-fno-builtin-free \
+		-fno-builtin-realloc \
+		-DDOOMGENERIC_RESX=320 -DDOOMGENERIC_RESY=200 \
+		-T user_linker.ld -Wl,--build-id=none \
+		-Iuser_programs/doom/game/doomgeneric -Isrc/user \
+		$^ -o initrd/doom.elf
 
 all: $(ISO)
 
@@ -145,6 +146,59 @@ debug: $(ISO)
 		-ex "target remote :1234" \
 		-ex "add-symbol-file initrd/doom.elf" \
 		-ex "break kernel_main" \
+		-ex "break isr_0"
+		-ex "break isr_1"
+		-ex "break isr_2"
+		-ex "break isr_3"
+		-ex "break isr_4"
+		-ex "break isr_5"
+		-ex "break isr_6"
+		-ex "break isr_7"
+		-ex "break isr_8"
+		-ex "break isr_9"
+		-ex "break isr_10"
+		-ex "break isr_11"
+		-ex "break isr_12"
+		-ex "break isr_13"
+		-ex "break isr_14"
+		-ex "break isr_15"
+		-ex "break isr_16"
+		-ex "break isr_17"
+		-ex "break isr_18"
+		-ex "break isr_19"
+		-ex "break isr_20"
+		-ex "break isr_21"
+		-ex "break isr_22"
+		-ex "break isr_23"
+		-ex "break isr_24"
+		-ex "break isr_25"
+		-ex "break isr_26"
+		-ex "break isr_27"
+		-ex "break isr_28"
+		-ex "break isr_29"
+		-ex "break isr_30"
+		-ex "break isr_31"
+		-ex "break irq_0"
+		-ex "break irq_1"  
+		-ex "break irq_2"  
+		-ex "break irq_3"  
+		-ex "break irq_4"  
+		-ex "break irq_5"  
+		-ex "break irq_6"  
+		-ex "break irq_7"  
+		-ex "break irq_8"  
+		-ex "break irq_9"  
+		-ex "break irq_10"  
+		-ex "break irq_11"  
+		-ex "break irq_12"  
+		-ex "break irq_13"  
+		-ex "break irq_14"  
+		-ex "break irq_15"  
+		-ex "break isr_common_stub"  
+
+
+
+
 		-ex "continue"
 
 # ========================
