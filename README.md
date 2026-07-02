@@ -255,7 +255,21 @@ This separates first-run intialisation from stead-state context switching, which
 _Note that the extract here is a simplified version of what is in `process_asm.asm`_.  
 
 
-## Process Scheduler 
+## Process Scheduler  
+### 1. Module Overview 
+The target directory: `src/process/scheduler.c`  
+
+The system uses round-robin scheduling over a singly linked list of `process_t` nodes. The timer IRQ calls `scheduler_tick()` to preempt the current process and select the next runnable one.  
+
+### 2. Context Switching  
+`context_switch` (in `context.asm`) saves the full GPR of the set outgoing process into its `context` field, swaps the `cr3` if the incoming process has a different page table, then restores the incoming process's registers state and returns — landing at whatever that process's last called `context_switch` from, or at its trampoline on first run.  
+```
+TODO ADD EXAMPLE CODE  
+```
+
+### 3. Sleep and Block 
+Processes can voluntarily block via `SYS_SLEEP` (setting `wake_tick` and `wait_reason = WAIT_SLEEP`) or block on keyboard input (`WAIT_KEY`). On each scheduler tick, the scheduler scans the list and wakes any process whose `wait_tick <= timer_ticks()` or whose waited resource is available, transitioning it back to `PROCESS_READY`.  
+
 ## Running the Code
 ### Libs
 ```
