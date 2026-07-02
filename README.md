@@ -314,6 +314,100 @@ int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t ar
 
 
 ## File System 
+### 1. System Overview 
+The target directory: `src/filesystem/`  
+
+The file system layer consists of two components: a __ramdisk__ that provides read-only file access to an in-memory archive, and an __ELF loader__ that parses and maps executable images into the user address spaces.  
+
+### 2. Ramdisk  
+The initrd is a USTAR-format tar archive embedded directly into the kernel binary at link time through `objcopy`. The archive contains `hello.elf`, `doom.elf`, and `doom1.wad`. A small USTAR parsee walks the 512-byte headers to locate files by name:  
+```
+int ramdisk_open(const char *path) { 
+    const uint8_t *p = _binary_initrd_tar_start;
+    
+    while(p + 512 <= _binary_initrd_tar_end && p[0] != '\0') { 
+        const char *name = (const char *)p; 
+        uint64_t size = octal((const char *)(p + 124), 11); 
+        char type = (char)p[156]; 
+    
+        if((type == '0' || type == '\0') && path_match(name, path)) { 
+            for(int i = 0; i < MAX_FDS; i++) { 
+                if(!fds[i].in_use) { 
+                    fds[i].data = p + 512; 
+                    fds[i].size = size; 
+                    fds[i].pos = 0; 
+                    fds[i].in_use = 1; 
+                    return i + 3; 
+                }
+            }
+            return -1; 
+        }
+        p += 512 + ((size + 511) & ~511ULL); 
+    }
+    return -1; 
+}
+``` 
+The fd table (`fs[]`) tracks up to `MAX_FDS` open files simultaneously, each with a `data` pointer into the tar image and a `pos` cursor for each sequential reads and seeks.  
+
+### 3. ELF Loader 
+`process_create_elf()` parses an ELF64 executable from the ramdisk and constructs a fully mapped user process:  
+
+1. Validates the ELF magic, class (`ELFCLASS64`), and machine (`EM_X86_64`).
+2. Iterates `PT_LOAD` program headers, allocating physical frames and mapping them into the process's address space at the specified virtual addresses.
+3. Switches to the process's page table, zeroes each segment's memory region (handling BSS), then copies the file image from the ramdisk.
+4. Sets `heap_start` to the page-aligned end of the last loaded segment so `sys_sbrk` has a correct starting boundary.
+Builds the initial kernel stack frame for the trampoline and records the ELF entry point.
+
+## User Space Library
+### 1. Module Overview
+The target directory: `src/user_programs/`
+
+The library provides the thin syscall wrappers used by all user-space programs, and `malloc` implementation for programs that doesn't link against the full libc.  
+
+### 2. Syscall Wrappers  
+Each wrapper uses inline assembly to load the syscall number into `rax` and invoke the `syscall` instruction, following the kernel's ABI convention: 
+```
+void u_sleep(uint64_t ticks) {
+    asm volatile("mov $4,%%rax\nsyscall\n"
+        :: "D"(ticks)
+        : "rax","rcx","rdx","rsi","r8","r9","r10","r11","memory");
+}
+```
+The clobber list ensures the compiler doens't assume any caller-saved register survives the syscall boundary. 
+
+### 3. User Malloc
+`src/user_programs/malloc.c` mplements a free-list heap allocator driven by `u_sbrk()`. It is intentionally separate from the kernel heap (`heap.c`) and is compiled into both `hello.elf` and linked ahead of musl in `doom.elf` so that `malloc`/`calloc`/`free` symbols take precedence — bypassing musl's internal `mmap`-based allocator, which would otherwise issue raw Linux `mmap` syscalls that conflict with the kernel's custom ABI.
+
+## DOOM Port 
+### 1. Overview 
+DOOM is ported via the [doomgeneric](https://github.com/ozkl/doomgeneric) abstraction layer, which reduces the the platform requirements to five functions: `DG_Init`, `DG_DrawFrame`, `DG_SetPalette`, `DG_GetKey`, and `DG_SleepMs`.
+
+## 2. Platform Layer (`doom_platform.c`) 
+Because `doom.elf` is linked against musl libc (`musl-gcc -static`), musl's internals issue raw Linux syscalls via the `syscall` instruction. Rather than modifying doomgeneric, the kernel's `linux_syscall_dispatch()` translates Linux ABI numbers to the corrrect kernel handlers.  
+`doom_platform.c` provides overrides for `_exit`, `read`, `write`, `open`, `lseek`, and `close` at the C function level, handling the cases where the musl does call through public POSIX symbols rather than internal `__syscall`. 
+
+### 3. Display (`doomgeneric_myos.c`)
+DOOM renders into `I_VideoBuffer` — a 320x200 byte array in indexed-colour Mode 13h format. `DG_Init` maps the VGA framebuffer (physical 0xA0000) into the process's virtual address space via `SYS_MAP_FB`. `DG_DrawFrame` copies `I_VideoBuffer` directly into the mapped region. `DG_SetPalette` sends the 768-byte palette (256 × RGB) to the kernel via `SYS_SETPALETTE`, which programs the VGA DAC registers directly.  
+
+### 4. Input (`doomgeneric_myos.c`)
+The keyboard driver was extended to maintain a ring buffer of raw PS/2 make/break events alongside the existing character queue. A new `SYS_GET_RAW_KEY` syscall (177) dequeues one event per call, returning the scancode and a pressed/released flag. `DG_GetKey` translates PS/2 Set-1 scancodes to DOOM key constants and — critically — delivers both keydown and keyup events, which DOOM requires to correctly clear held-key state:
+```
+int DG_GetKey(int *pressed, unsigned char *doomKey) {
+    raw_key_t evt;
+    while (u_get_raw_key(&evt)) {
+        unsigned char dk = sc_to_doom(evt.scancode);
+        if (!dk) continue;
+        *pressed = evt.pressed;
+        *doomKey = dk;
+        return 1;
+    }
+    return 0;
+}
+```
+
+### 5. Result 
+DOOM boots, loads `doom1.wad` from the ramdisk, renders at 320x200 in Mode 13h with correct palette, and accepts keyboard interrupts for movement, shooting, and interaction. The system runs entirely on my custom bare-metal kernel written from scratch — no host operating system involvement.  
+
 
 
 
@@ -337,30 +431,8 @@ sudo apt install build-essential nasm gcc-x86-64-linux-gnu \
 ```
 ../Custom-Kernel$ make clean && make test && make run
 ```
-### What is the GDT
-The Global Descriptor Table (GDT) is a table in memory that defines memory segments, providing context to which segments are allowed to perform certain actions --- privilege rings. Ring 0 is called the kernel mode which has full hardware access and ring 3 is the user mode which has certain restrictions.cIn the modern day the GDT is mostly just a formality --- which must still be loaded correctly --- the CPU requires before the OS is able to do anything of use.  
 
-### IDT and Interrupt Stubs 
-The Interrupt Descriptor Table (IDT) is the CPU's lookup table for handing interrupts and exceptions. When anything unexpected happens --- divide 0, page fault, timer firing, keypress --- the CPU stops what it's doing and has to handle the interrupt type by look it up on the table. 
-There are 256 possible entries. 0-31 are CPU exceptions, 32-47 are hardware interrupts, 48+ are for syscalls. 
-
-Each entry of the table must point to an assembly stub because the CPU pushes specific things onto the stack when an interrupt fires and expects a specific ```iretq``` call after the interrupt. An example of an assembly stub is just a small ```.asm``` file containing a small set of instructions; the goal is to not write the entire system is assembly. 
-
-### ROADMAP 
-- Complete user space 
-    - SYS_READ: blocking keyboard input to a user buffer. User process calls, kernel blocks the process until the key arrives, wakes the process and returns the char. 
-    - SYS_SLEEP: yield for ```n``` ticks. Kernel sets a wake-up tick and then sets it as PROCESS_BLOCKED until time to start again. 
-    - PROCESS_BLOCKED: ... 
-    - SYS_SBRK: lets the user process call malloc. Implement sbrk as a syscall that bumps a per-process heap pointer and maps new pages. Then a minimal malloc/free in ulib builds on top of it. 
-- Graphics 
-    - Consider VESA/VBE for better colours/resolution. 
-    - Double buffering: user process draws to a back buffer in its own memory, then syscall to blit it to the real framebuffer. Supposedly prevents tearing issues. 
-- Storage and filesystem 
-    - If i want to run and load games, i will need a file system.
-- ELF loader
-- Load up DOOM from doomgeneric and map all ports and elements.  
-
-### BUGS TO ADDRESS
+### BUGS TO ADDRESS... 
 > When you init the process scheduler with just a user process, the scheduler will bug out after the first print. The same doesn't happen when I start with a kernel process and append a user process after in the scheduler.
  
 > Technically not a bug; change files to be cleaner, for example I have to keep adding header files all across different sections. I need to find a cleaner method for sharing information between different 'modules'. E.g Scheduler has ```scheduler_wake_key_waiter()``` which I then have to link in ```keyboard.c```.
