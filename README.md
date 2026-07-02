@@ -268,7 +268,57 @@ TODO ADD EXAMPLE CODE
 ```
 
 ### 3. Sleep and Block 
-Processes can voluntarily block via `SYS_SLEEP` (setting `wake_tick` and `wait_reason = WAIT_SLEEP`) or block on keyboard input (`WAIT_KEY`). On each scheduler tick, the scheduler scans the list and wakes any process whose `wait_tick <= timer_ticks()` or whose waited resource is available, transitioning it back to `PROCESS_READY`.  
+Processes can voluntarily block via `SYS_SLEEP` (setting `wake_tick` and `wait_reason = WAIT_SLEEP`) or block on keyboard input (`WAIT_KEY`). On each scheduler tick, the scheduler scans the list and wakes any process whose `wait_tick <= timer_ticks()` or whose waited resource is available, transitioning it back to `PROCESS_READY`. 
+
+## System Call Interface 
+### Syscall Overview 
+The target directory: `src/syscall/`
+
+The syscall layer is the median that allows for Ring 3 processes to access privileged instructions (Ring 0). It uses the `syscall`/`sysret` fast-path instruction pair rather than software interrupts. 
+
+### 2. Syscall Entry 
+`syscall_init()` programs MSRs:  
+- STAR — encodes the kernel CS/SS selectors loaded on syscall entry.  
+- LSTAR — the 64-bit handler address (`syscall_entry` in `syscall_asm.asm`).  
+- SFMASK — clears RFLAGS.IF on entry so the handler runs with interrupts enabled.  
+
+`syscall_asm.asm` switches from the user stack to the per-CPU kernel stack (`kernel_stack_top`), saves the caller-saved registers, then calls `syscall_dispatch(num, arg1, arg2, arg3)` with arguments taken from `rax`, `rdi`, `rsi`, `rdx` respectively.  
+
+### 3. Dual ABI Dispatch 
+Because DOOM is linked against musl libc, which issues syscalls using __Linux ABI numbers__ (`openat=275`, `mmap=9`, `brk=12`, etc.), while native kernel processes use a custom compact numbering, the dispatcher checks a per-process flag:  
+``` 
+int64_t syscall_dispatch(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) { 
+
+    process_t *curr = scheduler_current(); 
+    if(curr && curr->use_linux_abi) { 
+        return linux_syscall_dispatch(num, arg1, arg2, arg3); 
+    }
+    /* Custom ABI switch statement */
+} 
+```
+`linux_syscall_dispatch()` maps the Linux numbers to the correct kernel handlers — including translating `mmap`/`brk` into `sys_brk`, `openat` into `ramdisk_open`, and `writev` into `sys_write` — while preserving the custom extension numbers (map_fb, setpalette, gettime) at non-conflicting slots. This design avoids modifying musl and requires zero changes to the doomgeneric source tree.  
+
+### 4. Syscall Table 
+
+| Number | Name | Notes |
+| :--- | :--- | :--- |
+| 0 | SYS_WRITE | VGA + serial output |
+| 1 | SYS_EXIT | Mark process dead, reschedule |
+| 4 | SYS_SLEEP | Block until tick |
+| 6 | SYS_MAP_FB | Map VGA framebuffer into user VA |
+| 13 | SYS_SBRK | Grow user heap |
+| 14 | SYS_GETTIME | Timer ticks &rarr; milliseconds |
+| 15 | SYS_SETPALETTE | Program VGA DAC registers |
+| 16 | SYS_SET_FS_BASE | WRMSR for musl TLS |
+| 177 | SYS_GETKEY | Raw PS/2 scancode + press/release |
+
+
+## File System 
+
+
+
+
+
 
 ## Running the Code
 ### Libs
